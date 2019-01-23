@@ -15,7 +15,7 @@ args = [
         help='Output directory.')
 ]
 
-plugin_name_re = pname_re = re.compile('(\-|\s|\\|<|>|\(|\)|/)+')
+plugin_name_re = pname_re = re.compile('(\-|\s|\\|\<|\>|\=|\(|\)|/)+')
 ipv4_re = i4_re = re.compile('^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$')
 ipv6_re = i6_re = re.compile('^(?:[A-F0-9]{1,4}:){7}[A-F0-9]{1,4}$')
 
