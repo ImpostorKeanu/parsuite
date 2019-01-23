@@ -48,3 +48,58 @@ Parsing: tcp:dce_services_enumeration:49152
 Parsing: tcp:dce_services_enumeration:52146
 Parsing: tcp:dce_services_enumeration:49153
 ```
+
+This builds a directory structure like:
+
+```
+# Showing sockets
+
+(env) archangel@iron:parsuite~> find test_output -name '*sockets' | head
+test_output/high/oracle_tns_listener_remote_poisoning/tcp_fqdns.sockets
+test_output/high/oracle_tns_listener_remote_poisoning/tcp_ips.sockets
+test_output/high/hp_system_management_homepage_openssl_multiple_vulnerabilities_heartbleed_/tcp_fqdns.sockets
+test_output/high/hp_system_management_homepage_openssl_multiple_vulnerabilities_heartbleed_/tcp_ips.sockets
+test_output/high/snmp_agent_default_community_name_public_/udp_fqdns.sockets
+test_output/high/snmp_agent_default_community_name_public_/udp_ips.sockets
+test_output/high/hp_system_management_homepage_<_7.2.4.1_7.3.3.1_openssl_multiple_vulnerabilities/tcp_fqdns.sockets
+test_output/high/hp_system_management_homepage_<_7.2.4.1_7.3.3.1_openssl_multiple_vulnerabilities/tcp_ips.sockets
+test_output/high/hp_system_management_homepage_ginkgosnmp.inc_command_injection/tcp_fqdns.sockets
+test_output/high/hp_system_management_homepage_ginkgosnmp.inc_command_injection/tcp_ips.sockets
+...
+(env) archangel@iron:parsuite~> head test_output/high/oracle_tns_listener_remote_poisoning/tcp_ips.sockets
+1.1.1.1:1521
+
+# Generic lists of ips/fqdns
+
+(env) archangel@iron:parsuite~> find test_output -name '*list' | head
+test_output/high/oracle_tns_listener_remote_poisoning/tcp_ips.list
+test_output/high/oracle_tns_listener_remote_poisoning/tcp_fqdns.list
+test_output/high/oracle_tns_listener_remote_poisoning/exploit_frameworks.list
+test_output/high/hp_system_management_homepage_openssl_multiple_vulnerabilities_heartbleed_/tcp_ips.list
+test_output/high/hp_system_management_homepage_openssl_multiple_vulnerabilities_heartbleed_/tcp_fqdns.list
+test_output/high/hp_system_management_homepage_openssl_multiple_vulnerabilities_heartbleed_/exploit_frameworks.list
+test_output/high/snmp_agent_default_community_name_public_/udp_ips.list
+test_output/high/snmp_agent_default_community_name_public_/udp_fqdns.list
+test_output/high/hp_system_management_homepage_<_7.2.4.1_7.3.3.1_openssl_multiple_vulnerabilities/tcp_ips.list
+test_output/high/hp_system_management_homepage_<_7.2.4.1_7.3.3.1_openssl_multiple_vulnerabilities/tcp_fqdns.list
+...
+(env) archangel@iron:parsuite~> cat test_output/high/oracle_tns_listener_remote_poisoning/tcp_ips.list
+1.1.1.1
+```
+
+It will also return Metasploit modules when found:
+
+```
+(env) archangel@iron:parsuite~> find test_output -name 'msf*'
+test_output/high/hp_system_management_homepage_ginkgosnmp.inc_command_injection/msf_modules.list
+test_output/high/hp_system_management_homepage_<_7.2.0.14_iprange_parameter_code_execution/msf_modules.list
+test_output/high/hp_system_management_homepage_<_7.1.1_multiple_vulnerabilities/msf_modules.list
+test_output/high/hp_system_management_homepage_<_7.2.1.0_multiple_vulnerabilities_beast_/msf_modules.list
+test_output/medium/openssl_heartbeat_information_disclosure_heartbleed_/msf_modules.list
+test_output/medium/esxi_5.0_5.1_5.5_6.0_multiple_vulnerabilities_vmsa_2016_0010_remote_check_/msf_modules.list
+test_output/critical/nfs_exported_share_information_disclosure/msf_modules.list
+test_output/critical/oracle_weblogic_server_deserialization_rce_cve_2018_2628_/msf_modules.list
+...
+(env) archangel@iron:parsuite~> cat test_output/high/hp_system_management_homepage_ginkgosnmp.inc_command_injection/msf_modules.list
+HP System Management Homepage JustGetSNMPQueue Command Injection
+```
