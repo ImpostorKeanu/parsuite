@@ -21,7 +21,9 @@ if __name__ == '__main__':
     subparsers.required = True
     subparsers.dest = 'module'
 
+    print('Starting the parser\n')
     # strap arguments from modules as argument groups
+    sprint('Loading modules')
     for handle,module in modules.handles.items():
 
         helpers.validate_module(module)
@@ -37,6 +39,12 @@ if __name__ == '__main__':
         'Input file does not exist.'
     )
 
+    sprint(f'Executing module: {args.module}')
+
     modules.__dict__[args.module].parse(
         **vars(args)
     )
+    
+    print()
+    sprint('Module execution complete. Exiting.')
+    print()

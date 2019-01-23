@@ -104,6 +104,7 @@ def parse(input_file=None, output_directory=None, **kwargs):
         output_directory
     )
 
+    sprint('Loading Nessus file\n')
     tree = ET.parse(input_file)
     os.chdir(bo)
     report = {}
@@ -141,19 +142,19 @@ def parse(input_file=None, output_directory=None, **kwargs):
             'metasploit'
         ]
 
-        #frameworks = [fw for fw in frameworks if ri.find(f'./exploit_framework_{fw}')]
         verified = []
         msf_modules = []
-
 
         for fw in frameworks:
             if ri.findall(f'.//exploit_framework_{fw}'):
                 verified.append(fw)
 
-        if verified:
+        frameworks = verified
+
+        if frameworks:
             exploitable = True
 
-            if 'metasploit' in verified:
+            if 'metasploit' in frameworks:
                 
                 for ele in ri.findall(f'.//metasploit_name'):
                     msf_modules.append(ele.text)
@@ -184,11 +185,9 @@ def parse(input_file=None, output_directory=None, **kwargs):
         print(f'Parsing: {protocol}:{pname}:{port}')
 
 
-        # make directory structure
-        # TODO: Make this less shoddy
+        # enter the plugin directory
         if not Path(pname).exists():
             os.mkdir(pname)
-        
         os.chdir(pname)
 
         # write exploit frameworks to disk
@@ -197,14 +196,15 @@ def parse(input_file=None, output_directory=None, **kwargs):
                 for fw in ri.exploit_frameworks:
                     of.write(fw+'\n')
 
+        # write metasploit modules to disk
         if ri.msf_modules:
             with open('msf_modules.list','w') as of:
                 for m in ri.msf_modules:
                     of.write(m+'\n')
 
+        # begin collecting ip/fqdns
         fqdns = []
         ips = []
-
         for rh in tree.findall(f'.//ReportHost//ReportItem[@pluginID="{plugin_id}"]'\
             f'[@protocol="{protocol}"]'\
             f'[@port="{port}"]/..'):
@@ -230,7 +230,9 @@ def parse(input_file=None, output_directory=None, **kwargs):
         # unique the lists
         ips = list(set(ips))
         fqdns = list(set(fqdns))
-        
+       
+        # avoid duplication
+        # seems redundant; clearly failing to understand something
         ips = [ip for ip in ips if ip not in proto.ports[port].hosts]
         proto.ports[port].hosts += ips
 
@@ -257,8 +259,5 @@ def parse(input_file=None, output_directory=None, **kwargs):
         # change back to the base directory
         os.chdir(bo)
 
-    print()
-    sprint('Done!')
-    print()
 
     return 0

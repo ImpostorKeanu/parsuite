@@ -109,8 +109,4 @@ def parse(input_file=None, output_directory=None,
         for handle,f in ofs.items():
             f.close()
 
-    print()
-    sprint('Done!')
-    print()
-
     return 0
