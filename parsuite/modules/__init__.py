@@ -1,5 +1,6 @@
 from . import NmapXMLServiceParser
 from . import NessusHostDumper 
+from . import URLCrazyToCSV
 from sys import modules
 
 handles = {
