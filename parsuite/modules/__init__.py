@@ -1,4 +1,5 @@
 from . import NmapXMLServiceParser
+from . import NmapXMLSMBSecurityMode
 from . import NessusHostDumper 
 from . import URLCrazyToCSV
 from sys import modules
