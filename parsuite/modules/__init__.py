@@ -2,6 +2,7 @@ from . import NmapXMLServiceParser
 from . import NmapXMLSMBSecurityMode
 from . import NessusHostDumper 
 from . import URLCrazyToCSV
+from . import ReconNGContactDumper
 from sys import modules
 
 handles = {
