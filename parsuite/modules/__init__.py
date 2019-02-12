@@ -3,6 +3,7 @@ from . import NmapXMLSMBSecurityMode
 from . import NessusHostDumper 
 from . import URLCrazyToCSV
 from . import ReconNGContactDumper
+from . import NmapTopPortDumper
 from sys import modules
 
 handles = {

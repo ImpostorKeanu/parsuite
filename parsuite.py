@@ -21,7 +21,8 @@ if __name__ == '__main__':
     subparsers.required = True
     subparsers.dest = 'module'
 
-    print('Starting the parser\n')
+    print()
+    sprint('Starting the parser\n')
     # strap arguments from modules as argument groups
     sprint('Loading modules')
     for handle,module in modules.handles.items():
