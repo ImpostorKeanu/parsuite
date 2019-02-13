@@ -19,9 +19,7 @@ if __name__ == '__main__':
     subparsers = ap.add_subparsers(help='Parser module selection.')
     subparsers.required = True
     subparsers.dest = 'module'
-
-    print()
-    esprint('Starting the parser\n')
+    esprint('Starting the parser')
     # strap arguments from modules as argument groups
     esprint('Loading modules')
     for handle,module in modules.handles.items():
@@ -43,6 +41,4 @@ if __name__ == '__main__':
         **vars(args)
     )
     
-    print()
-    sprint('Module execution complete. Exiting.')
-    print()
+    esprint('Module execution complete. Exiting.')

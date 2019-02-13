@@ -2,7 +2,7 @@ from parsuite.core.argument import Argument
 from parsuite import helpers
 from parsuite.core.suffix_printer import *
 from pathlib import Path
-from sys import exit
+from sys import exit,stderr,stdout
 from collections import namedtuple
 from re import compile,match
 
@@ -41,11 +41,11 @@ def parse(csv_only=None,
         tcp=None, udp=None, sctp=None, top=None, all_protocols=False, **kwargs):
 
     if not Path(default_services_path).exists() and not input_file:
-        sprint('Services file not detected. Either nmap isn\'t installed or you\'re not using'\
+        esprint('Services file not detected. Either nmap isn\'t installed or you\'re not using'\
             ' a real computer (Winders)\n\n Exiting like a pretentious boss')
         exit()
 
-    sprint(f'Dumping the {top} ports\n')
+    esprint(f'Dumping the {top} ports')
 
     # make a list of desired protocols
     protocols = []
@@ -116,15 +116,16 @@ def parse(csv_only=None,
 
                 if not csv_only:
                     print(f'{s.frequency:0<8}\t{str(s.port)+"/"+s.protocol:8}\t{s.name}')
-
-        print()
+        if not csv_only:
+            print()
 
     if not csv_only:
-        print('CSV List(s):\n')
+        esprint('CSV List(s):\n')
     for protocol in protocols:
+        esprint('tcp:')
         ports = ','.join(
             [str(p) for p in sorted(services[protocol]["top_ports"])]
         )
-        print(f'{protocol}-csv: {ports}')
+        print(ports)
 
     return 0
