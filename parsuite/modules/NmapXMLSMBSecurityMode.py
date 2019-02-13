@@ -1,4 +1,4 @@
-from parsuite.core.argument import Argument
+from parsuite.core.argument import Argument,DefaultArguments
 from parsuite import helpers
 from parsuite.core.suffix_printer import *
 import xml.etree.ElementTree as ET
@@ -9,6 +9,7 @@ help='Dump hosts to a file containing the security mode discovered by '\
     'smb-security-mode.'
 
 args = [
+    DefaultArguments.input_file,
     Argument('--output-file', '-of', required=True,
         help='Output file.')
 ]

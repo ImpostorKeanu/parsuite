@@ -1,4 +1,4 @@
-from parsuite.core.argument import Argument
+from parsuite.core.argument import Argument,DefaultArguments
 from parsuite import helpers
 from parsuite.core.suffix_printer import *
 import xml.etree.ElementTree as ET
@@ -10,6 +10,7 @@ help='Accept a XML file generated '\
      'organized by service, for easy browsing.'
 
 args = [
+    DefaultArguments.input_file,
     Argument('--tcpwrapped', '-tw', action='store_true',
         help='Enable dumping of tcpwrapped services.'),
     Argument('--output-directory', '-od', required=True,

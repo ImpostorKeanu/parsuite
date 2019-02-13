@@ -6,9 +6,13 @@ from sys import exit
 from collections import namedtuple
 from re import compile,match
 
-help='Parse the Nmap services file and dump the most commonly open port.'
+help='Parse the Nmap services file and dump the most commonly open ports.'
+
+default_services_path = '/usr/share/nmap/nmap-services'
 
 args = [
+    Argument('--input-file','-if', default=default_services_path,
+        help='Input file to parse'),
     Argument('--top','-t', required=True, type=int,
         help='The top number of ports to return'),
     Argument('--csv-only','-csv', action='store_true',
@@ -28,22 +32,20 @@ Service = namedtuple(
     ['name','port','protocol','frequency']
 )
 
-default_services_path = '/usr/share/nmap/nmap-services'
-
 service_re = compile('^(?P<name>(\w|\-|\.|:)+)\s+'\
     '(?P<port>[0-9]{1,5})/'\
     '(?P<protocol>(tcp|udp|sctp))\s+'\
     '(?P<frequency>[0-9]\.[0-9]+)')
 
-def parse(input_file=None, csv_only=None,
+def parse(csv_only=None,
         tcp=None, udp=None, sctp=None, top=None, all_protocols=False, **kwargs):
 
     if not Path(default_services_path).exists() and not input_file:
-        sprint('Services file not detected. Either nmap isn\'t install or you\'re not using'\
+        sprint('Services file not detected. Either nmap isn\'t installed or you\'re not using'\
             ' a real computer (Winders)\n\n Exiting like a pretentious boss')
         exit()
 
-    sprint(f'Preparing to dump the top {top} ports\n')
+    sprint(f'Dumping the {top} ports\n')
 
     # make a list of desired protocols
     protocols = []
@@ -100,23 +102,25 @@ def parse(input_file=None, csv_only=None,
     # Collecting the top ports per protocol
     for proto in protocols:
 
-        if not csv_only:
-            print(f'{proto}\n')
-
         srvs = services[proto]
         freqs = sorted(srvs['frequencies'],key=float)[-top:]
+        if not csv_only:
+            print('{:-<39}'.format(''))
+            print('{: >24}'.format(proto.upper()+' Services'))
+            print('{:-<39}'.format(''))
+            print('{:16}{:15} Service'.format('Freq','Port/Proto'))
+            print('{: <16}{: <15}{: >8}'.format('----','----------','-------'))
         for freq in freqs:
-            # srvs['top_ports'] += [s.port for s in services[proto]['services'][freq]]
             for s in services[proto]['services'][freq]:
                 srvs['top_ports'].append(s.port)
 
                 if not csv_only:
-                    print(f'{s.frequency}\t{s.port}/{s.protocol}\t{s.name}')
+                    print(f'{s.frequency:0<8}\t{str(s.port)+"/"+s.protocol:8}\t{s.name}')
 
         print()
 
     if not csv_only:
-        print('CSV List(s) Below:\n')
+        print('CSV List(s):\n')
     for protocol in protocols:
         ports = ','.join(
             [str(p) for p in sorted(services[protocol]["top_ports"])]

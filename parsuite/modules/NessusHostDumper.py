@@ -1,4 +1,4 @@
-from parsuite.core.argument import Argument
+from parsuite.core.argument import Argument,DefaultArguments
 from parsuite import helpers
 from parsuite.core.suffix_printer import *
 from pathlib import Path
@@ -11,6 +11,7 @@ help='Parse a Nessus file and dump the contents to disk by: '\
     'risk_factor > plugin_name'
 
 args = [
+    DefaultArguments.input_file,
     Argument('--output-directory', '-od', required=True,
         help='Output directory.')
 ]

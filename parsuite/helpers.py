@@ -63,3 +63,10 @@ def handle_output_directory(output_directory):
     Path(bo+'/.tripfile').touch()
 
     return bo
+
+def validate_input_file(input_file):
+    'Lazy sauce'
+
+    assert Path(input_file).exists(), (
+        'Input file does not exist.'
+    )

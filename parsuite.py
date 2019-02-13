@@ -15,16 +15,15 @@ if __name__ == '__main__':
     ap = argument_parser = argparse.ArgumentParser(
         description='Parse the planet.')
 
-    ap.add_argument('--input-file', '-if', required=True)
 
     subparsers = ap.add_subparsers(help='Parser module selection.')
     subparsers.required = True
     subparsers.dest = 'module'
 
     print()
-    sprint('Starting the parser\n')
+    esprint('Starting the parser\n')
     # strap arguments from modules as argument groups
-    sprint('Loading modules')
+    esprint('Loading modules')
     for handle,module in modules.handles.items():
 
         helpers.validate_module(module)
@@ -35,12 +34,10 @@ if __name__ == '__main__':
 
     args = ap.parse_args()
     
-    # testing inputfile
-    assert Path(args.input_file).exists(), (
-        'Input file does not exist.'
-    )
+    if 'input_file' in args:
+        helpers.validate_input_file(args.input_file)
 
-    sprint(f'Executing module: {args.module}')
+    esprint(f'Executing module: {args.module}')
 
     modules.__dict__[args.module].parse(
         **vars(args)
