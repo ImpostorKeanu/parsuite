@@ -1,18 +1,40 @@
-#from . import NmapXMLServiceParser
-#from . import NmapXMLSMBSecurityMode
-#from . import NessusHostDumper 
-#from . import URLCrazyToCSV
-#from . import ReconNGContactDumper
-#from . import NmapTopPortDumper
-from sys import modules
+from sys import modules,exit
 from pathlib import Path
-from importlib import import_module
+from importlib.util import spec_from_file_location,module_from_spec
+import inspect
+from re import match
 
-for f in Path('.').glob('**/*.py'):
-    if p.name.startswith('_'): continue
-    import_module('.'+p.name, 'parsuite')
+# =====================================
+# GET THE PATH TO THE MODULES DIRECTORY
+# =====================================
+m = match(r'/.+/',inspect.getfile(
+        inspect.currentframe()
+    )
+)
 
-handles = {
-            modn.split('.')[-1]:mod for modn,mod in modules.items()
-            if modn.startswith('parsuite.modules') and modn != 'parsuite.modules'
-          }
+# ========================
+# DYNAMICALLY LOAD MODULES
+# ========================
+
+# Catch each module in a dictionary to be read by the main program
+handles = {}
+
+base = m.string[m.start():m.end()]
+
+files = sorted(
+    [
+        f.name for f in Path(base).glob('**/*.py')
+        if not f.name.startswith('_')
+    ]
+)
+
+for f in files:
+
+    mname = f[:len(f)-3]
+
+    # https://stackoverflow.com/questions/67631/how-to-import-a-module-given-the-full-path
+    # This is pretty much magic to me
+    spec = spec_from_file_location(mname, base+f)
+    mod = module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    handles[mname] = mod

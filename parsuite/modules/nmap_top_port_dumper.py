@@ -13,7 +13,7 @@ default_services_path = '/usr/share/nmap/nmap-services'
 args = [
     Argument('--input-file','-if', default=default_services_path,
         help='Input file to parse'),
-    Argument('--top','-t', required=True, type=int,
+    Argument('--top','-t', default=10, type=int,
         help='The top number of ports to return'),
     Argument('--csv-only','-csv', action='store_true',
         help='Return only the CSV output'),
@@ -24,7 +24,10 @@ args = [
     Argument('--sctp', action='store_true',
         help='Dump the top sctp services'),
     Argument('--udp',action='store_true',
-        help='Dump the top udp services')
+        help='Dump the top udp services'),
+    Argument('--minimum-frequency', '-mf', default=0.000001,
+        type=float,
+        help='Minimum frequency that must be met for a given service')
 ]
 
 Service = namedtuple(
@@ -38,7 +41,8 @@ service_re = compile('^(?P<name>(\w|\-|\.|:)+)\s+'\
     '(?P<frequency>[0-9]\.[0-9]+)')
 
 def parse(csv_only=None,
-        tcp=None, udp=None, sctp=None, top=None, all_protocols=False, **kwargs):
+        tcp=None, udp=None, sctp=None, top=None, all_protocols=False,
+        minimum_frequency=None, **kwargs):
 
     if not Path(default_services_path).exists() and not input_file:
         esprint('Services file not detected. Either nmap isn\'t installed or you\'re not using'\
@@ -50,21 +54,17 @@ def parse(csv_only=None,
     # make a list of desired protocols
     protocols = []
 
-    if udp:
-        protocols.append('udp')
-
-    if tcp:
-        protocols.append('tcp')
-
-    if sctp:
-        protocols.append('sctp')
-
-    if not protocols or all_protocols:
-        protocols = ['tcp','udp','sctp']
+    if udp: protocols.append('udp')
+    if tcp: protocols.append('tcp')
+    if sctp: protocols.append('sctp')
+    if not protocols or all_protocols: protocols = ['tcp','udp']
 
     services = {}
-    for proto in protocols:
-        services[proto] = {'services':{},'frequencies':[],'top_ports':[]}
+    for proto in protocols: services[proto] = {
+        'services':{},
+        'frequencies':[],
+        'top_ports':[]
+    }
     
     # parse the services
     with open(default_services_path) as service_file:
@@ -81,6 +81,8 @@ def parse(csv_only=None,
             # create the namedtuple
             groups = match(service_re, line).groupdict()
             groups['frequency'] = float(groups['frequency'])
+            if groups['frequency'] < minimum_frequency:
+                continue
             groups['port'] = int(groups['port'])
             service = Service(**groups)
 
@@ -98,31 +100,29 @@ def parse(csv_only=None,
             else:
                 srvs[service.frequency].append(service)
 
-
     # Collecting the top ports per protocol
     for proto in protocols:
 
         srvs = services[proto]
         freqs = sorted(srvs['frequencies'],key=float)[-top:]
         if not csv_only:
-            print('{:-<39}'.format(''))
-            print('{: >24}'.format(proto.upper()+' Services'))
-            print('{:-<39}'.format(''))
-            print('{:16}{:15} Service'.format('Freq','Port/Proto'))
-            print('{: <16}{: <15}{: >8}'.format('----','----------','-------'))
+            print('{:-<39}'.format(''),file=stderr)
+            print('{: >24}'.format(proto.upper()+' Services'),file=stderr)
+            print('{:-<39}'.format(''),file=stderr)
+            print('{:16}{:15} Service'.format('Freq','Port/Proto'),file=stderr)
+            print('{: <16}{: <15}{: >8}'.format('----','----------','-------'),file=stderr)
         for freq in freqs:
             for s in services[proto]['services'][freq]:
                 srvs['top_ports'].append(s.port)
-
                 if not csv_only:
-                    print(f'{s.frequency:0<8}\t{str(s.port)+"/"+s.protocol:8}\t{s.name}')
+                    print(f'{s.frequency:0<8}\t{str(s.port)+"/"+s.protocol:8}\t{s.name}',file=stderr)
         if not csv_only:
-            print()
+            print(file=stderr)
 
     if not csv_only:
         esprint('CSV List(s):\n')
     for protocol in protocols:
-        esprint('tcp:')
+        esprint(f'{protocol}:')
         ports = ','.join(
             [str(p) for p in sorted(services[protocol]["top_ports"])]
         )

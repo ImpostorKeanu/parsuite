@@ -37,7 +37,7 @@ if __name__ == '__main__':
 
     esprint(f'Executing module: {args.module}')
 
-    modules.__dict__[args.module].parse(
+    modules.handles[args.module].parse(
         **vars(args)
     )
     
