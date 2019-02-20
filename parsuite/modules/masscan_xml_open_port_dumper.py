@@ -7,11 +7,35 @@ import os
 
 help='Dump hosts and open ports from a masscan xml file.'
 
+formats={
+    'default':'{protocol}/{port}',
+    'socket':'{protocol}://{address}:{port}'
+}
+
 args = [
     DefaultArguments.input_file,
+    Argument('--fmt','-f',choices=list(formats.keys()),
+        default='default')
 ]
 
-def parse(input_file=None, **kwargs):
+def protocol_printer(protocols,address=None,fmt='{protocol}/{port}',require_open=True):
+
+    for protocol,states in protocols.items():
+
+        for state,ports in states.items():
+
+            if require_open and state != 'open':
+                continue
+    
+            for port in ports:
+    
+                print(
+                    fmt.format(address=address,
+                        protocol=protocol,
+                        port=port)
+                )
+
+def parse(input_file=None, fmt=None, **kwargs):
 
     report = {}
 
@@ -38,20 +62,10 @@ def parse(input_file=None, **kwargs):
         
         header = f'Open ports for: {address}'
         ban_len = len(header)
-        print('{}\n{:-<{ban_len}}'.format(header,'',ban_len=ban_len))
 
+        if fmt == 'default':
+            print('{}\n{:-<{ban_len}}'.format(header,'',ban_len=ban_len))
 
-        for protocol,states in protocols.items():
-
-            for state,ports in states.items():
-
-                if state != 'open':
-                    continue
-
-                for port in ports:
-                    print(f'{protocol}/{port}')
-
-        print()
-
+        protocol_printer(protocols,address=address,fmt=formats[fmt])
 
     return 0
