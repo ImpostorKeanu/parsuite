@@ -16,9 +16,11 @@ args = [
         help='Output directory.')
 ]
 
-plugin_name_re = pname_re = re.compile('(\-|\s|\\|\<|\>|\=|\(|\)|/)+')
+# plugin_name_re = pname_re = re.compile('(\-|\s|\\|\<|\>|\=|\(|\)|/|\'|\"|\.)+')
+plugin_name_re = pname_re = re.compile('(\s|\W)+')
 ipv4_re = i4_re = re.compile('^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$')
 ipv6_re = i6_re = re.compile('^(?:[A-F0-9]{1,4}:){7}[A-F0-9]{1,4}$')
+fqdn_re = re.compile('[a-zA-Z]')
 
 def check_ip(name):
 
@@ -101,41 +103,71 @@ class ReportItem:
 
 def parse(input_file=None, output_directory=None, **kwargs):
 
+    # Handle output directory
     bo = base_output_path = helpers.handle_output_directory(
         output_directory
     )
 
+    # Load the Nessus file
     sprint('Loading Nessus file\n')
     tree = ET.parse(input_file)
+
+    # Change to the base output directory
     os.chdir(bo)
+
+    # TODO: Document report structure
+    #
+    # report[
+    #   '<risk_factor>':{
+    #       '<plugin_id>':(ReportItem())
+    #   }
+    # ]
+
     report = {}
 
+    # For each report item
     for ri in tree.findall('.//ReportItem'):
 
         attrs = ri.attrib
 
+        # Capturing the pluginID
         plugin_id = pid = attrs['pluginID']
 
+        # Capture the plugin name
+         # Mold it to a string suitable for a directory name
         pname = plugin_name = re.sub(
             pname_re, '_', attrs['pluginName']
-        ).lower()
+        ).lower().strip('_')
 
+        # Capture the protocol
         protocol = None
         if 'protocol' in attrs:
             protocol = attrs['protocol']
 
+        # Capture the port
         port = None
         if 'port' in attrs:
             port = attrs['port']
 
-        risk_factor = ri.find('./risk_factor').text.lower()
+        # =============================================
+        # CAPTURE RISK FACTOR & MAKE A DIRECTORY FOR IT
+        # =============================================
+        #
+        # All report items for a given risk factor will be written to disk in a
+        # directory by that name.
 
+        # Capture the risk factor
+         # Normalize it by making it lower case
+        risk_factor = ri.find('./risk_factor').text.lower()
         if not risk_factor in report:
             report[risk_factor] = {}
             os.mkdir(risk_factor)
-        
         os.chdir(risk_factor)
-        
+
+        # ===========================================
+        # CAPTURING EXPLOITABLE STATUS AND FRAMEWORKS
+        # ===========================================
+
         frameworks = [
             'canvas',
             'core',
@@ -146,10 +178,10 @@ def parse(input_file=None, output_directory=None, **kwargs):
         verified = []
         msf_modules = []
 
+        # Capture the exploit frameworks
         for fw in frameworks:
             if ri.findall(f'.//exploit_framework_{fw}'):
                 verified.append(fw)
-
         frameworks = verified
 
         if frameworks:
@@ -161,7 +193,12 @@ def parse(input_file=None, output_directory=None, **kwargs):
                     msf_modules.append(ele.text)
 
         else:
+
             exploitable = False
+
+        # ========================================================================
+        # CREATE A REPORT ITEM AND APPEND IT TO THE APPROPRIATE LIST IN THE REPORT
+        # ========================================================================
 
         if pid in report[risk_factor]:
             ri = report[risk_factor][pid]
@@ -179,31 +216,32 @@ def parse(input_file=None, output_directory=None, **kwargs):
         
         proto = ri.append_proto(protocol, port)
 
+        # =======================================================================
+        # CHANGE TO BASE OUTPUT DIRECTORY IF THE PROTOCOL HAS ALREADY BEEN PARSED
+        # =======================================================================
+
         if not proto:
             os.chdir(bo)
             continue
 
-        print(f'Parsing: {protocol}:{pname}:{port}')
+        pref = f'Dumping ({port}/{protocol}):'
+        pth = f'{risk_factor}/{protocol}/{pname}'
+        print('{:22} {}'.format(pref,pth))
 
+        # ==================================
+        # CHANGE TO CURRENT PLUGIN DIRECTORY
+        # ==================================
 
-        # enter the plugin directory
+        # Enter or create a directory for a given plugin
+         # This is where output files will be written
         if not Path(pname).exists():
             os.mkdir(pname)
         os.chdir(pname)
 
-        # write exploit frameworks to disk
-        if ri.exploit_frameworks:
-            with open('exploit_frameworks.list','w') as of:              
-                for fw in ri.exploit_frameworks:
-                    of.write(fw+'\n')
+        # ================================================================
+        # CAPTURE ALL HOSTS AFFECTED BY A PLUGIN ON A PORT OVER A PROTOCOL
+        # ================================================================
 
-        # write metasploit modules to disk
-        if ri.msf_modules:
-            with open('msf_modules.list','w') as of:
-                for m in ri.msf_modules:
-                    of.write(m+'\n')
-
-        # begin collecting ip/fqdns
         fqdns = []
         ips = []
         for rh in tree.findall(f'.//ReportHost//ReportItem[@pluginID="{plugin_id}"]'\
@@ -225,24 +263,36 @@ def parse(input_file=None, output_directory=None, **kwargs):
                     text = ele.text
                     if tag.endswith('ip') and text not in ips:
                         ips.append(text)
-                    else:
+                    elif re.search(r'[a-zA-Z]',text) and (
+                        not re.match(ipv6_re,text) and not text in fqdns
+                    ):
                         fqdns.append(text)
 
-        # unique the lists
-        ips = list(set(ips))
-        fqdns = list(set(fqdns))
+        # ======================
+        # WRITING OUTPUT TO DISK
+        # ======================
+
+        # Exploit Frameworks
+        if ri.exploit_frameworks:
+            with open('exploit_frameworks.list','w') as of:              
+                for fw in ri.exploit_frameworks:
+                    of.write(fw+'\n')
+
+        # Metasploit Modules
+        if ri.msf_modules:
+            with open('msf_modules.list','w') as of:
+                for m in ri.msf_modules:
+                    of.write(m+'\n')
        
         # avoid duplication
         # seems redundant; clearly failing to understand something
         ips = [ip for ip in ips if ip not in proto.ports[port].hosts]
         proto.ports[port].hosts += ips
-
         fqdns = [fqdn for fqdn in fqdns if fqdn not in proto.ports[port].hosts]
         proto.ports[port].hosts += fqdns
 
-        # write addresses to file
-        lists = {'ips':ips,'fqdns':fqdns}
-        for fmt,lst in lists.items():
+        # Write IP addresses and FQDNs to disk in current directory
+        for fmt,lst in {'ips':ips,'fqdns':fqdns}.items():
 
             if lst:
 
@@ -250,15 +300,15 @@ def parse(input_file=None, output_directory=None, **kwargs):
     
                     for record in lst:
                         outfile.write(record+'\n')
+
+                if port != '0':
     
+                    with open(f'{protocol}_{fmt}.sockets','a') as outfile:
     
-                with open(f'{protocol}_{fmt}.sockets','a') as outfile:
-    
-                    for record in lst:
-                        outfile.write(record+f':{port}\n')
+                        for record in lst:
+                            outfile.write(record+f':{port}\n')
     
         # change back to the base directory
         os.chdir(bo)
-
 
     return 0

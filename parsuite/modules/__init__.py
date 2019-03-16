@@ -21,6 +21,7 @@ handles = {}
 
 base = m.string[m.start():m.end()]
 
+# Sort the file names to organize the modules by name at the main interface
 files = sorted(
     [
         f.name for f in Path(base).glob('**/*.py')
