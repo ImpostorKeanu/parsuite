@@ -4,7 +4,7 @@ Simple parser framework. This was written super fast because I'm super impatient
 
 # A Note on Usage
 
-Almost all non-relevant output, such as `[+] Alerting on some event`, is printed to `stderr`. When an output file isn't desired, you can always clean up the output by sending `stderr` to the bitbucket and use `xclip` to catch the output from `stdout`, .e.g `python3.7 ./parsuite.py nmap_top_port_dumper -t 100 2>/dev/null | xclip -sel clip`.
+Almost all irrelevant output, such as `[+] Alerting on some event`, is printed to `stderr`. When an output file isn't desired, you can always clean up the output by sending `stderr` to the bitbucket and use `xclip` to catch the output from `stdout`, .e.g `python3.7 ./parsuite.py nmap_top_port_dumper -t 100 2>/dev/null | xclip -sel clip`.
 
 # Usage
 
