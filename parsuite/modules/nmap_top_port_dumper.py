@@ -4,7 +4,7 @@ from parsuite.core.suffix_printer import *
 from pathlib import Path
 from sys import exit,stderr,stdout
 from collections import namedtuple
-from re import compile,match
+import re
 
 help='Parse the Nmap services file and dump the most commonly open ports.'
 
@@ -25,6 +25,8 @@ args = [
         help='Dump the top sctp services'),
     Argument('--udp',action='store_true',
         help='Dump the top udp services'),
+    Argument('--name-search', required=False,
+        help='Search all service names and dump matches'),
     Argument('--minimum-frequency', '-mf', default=0.000001,
         type=float,
         help='Minimum frequency that must be met for a given service')
@@ -35,21 +37,37 @@ Service = namedtuple(
     ['name','port','protocol','frequency']
 )
 
-service_re = compile('^(?P<name>(\w|\-|\.|:)+)\s+'\
+service_re = re.compile('^(?P<name>(\w|\-|\.|:)+)\s+'\
     '(?P<port>[0-9]{1,5})/'\
     '(?P<protocol>(tcp|udp|sctp))\s+'\
     '(?P<frequency>[0-9]\.[0-9]+)')
 
+def parse_service(line,minimum_frequency=None):
+
+    # strip whitespace
+    line = line.strip()
+
+    # assure content is there for parsing
+    if not line or line[0] == '#': return None
+
+    # create the namedtuple
+    groups = re.match(service_re, line).groupdict()
+    groups['frequency'] = float(groups['frequency'])
+    if minimum_frequency and groups['frequency'] < minimum_frequency:
+        return None
+    groups['port'] = int(groups['port'])
+
+    return Service(**groups)
+
 def parse(csv_only=None,
         tcp=None, udp=None, sctp=None, top=None, all_protocols=False,
-        minimum_frequency=None, **kwargs):
+        minimum_frequency=None, name_search=None, **kwargs):
 
     if not Path(default_services_path).exists() and not input_file:
         esprint('Services file not detected. Either nmap isn\'t installed or you\'re not using'\
             ' a real computer (Winders)\n\n Exiting like a pretentious boss')
         exit()
 
-    esprint(f'Dumping the {top} ports')
 
     # make a list of desired protocols
     protocols = []
@@ -60,72 +78,107 @@ def parse(csv_only=None,
     if not protocols or all_protocols: protocols = ['tcp','udp']
 
     services = {}
-    for proto in protocols: services[proto] = {
-        'services':{},
-        'frequencies':[],
-        'top_ports':[]
-    }
-    
-    # parse the services
-    with open(default_services_path) as service_file:
+  
+    if name_search:
 
-        for line in service_file:
+        services = {}
+        for proto in protocols: services[proto] = []
 
-            # strip whitespace
-            line = line.strip()
+        with open(default_services_path) as service_file:
 
-            # assure content is there for parsing
-            if not line or line[0] == '#':
-                continue
+            for line in service_file:
 
-            # create the namedtuple
-            groups = match(service_re, line).groupdict()
-            groups['frequency'] = float(groups['frequency'])
-            if groups['frequency'] < minimum_frequency:
-                continue
-            groups['port'] = int(groups['port'])
-            service = Service(**groups)
+                service = parse_service(line)
+                if not service or not service.protocol in protocols: continue
 
-            if not service.protocol in protocols:
-                continue
+                if re.search(re.escape(name_search),service.name):
+                    services[service.protocol].append(service)
 
-            srvs = services[service.protocol]['services']
-            freqs = services[service.protocol]['frequencies']
+            for proto in protocols:
 
-            if service.frequency not in freqs:
-                freqs.append(service.frequency)
-
-            if not service.frequency in srvs:
-                srvs[service.frequency] = [service]
-            else:
-                srvs[service.frequency].append(service)
-
-    # Collecting the top ports per protocol
-    for proto in protocols:
-
-        srvs = services[proto]
-        freqs = sorted(srvs['frequencies'],key=float)[-top:]
-        if not csv_only:
-            print('{:-<39}'.format(''),file=stderr)
-            print('{: >24}'.format(proto.upper()+' Services'),file=stderr)
-            print('{:-<39}'.format(''),file=stderr)
-            print('{:16}{:15} Service'.format('Freq','Port/Proto'),file=stderr)
-            print('{: <16}{: <15}{: >8}'.format('----','----------','-------'),file=stderr)
-        for freq in freqs:
-            for s in services[proto]['services'][freq]:
-                srvs['top_ports'].append(s.port)
+                srvs = services[proto]
                 if not csv_only:
-                    print(f'{s.frequency:0<8}\t{str(s.port)+"/"+s.protocol:8}\t{s.name}',file=stderr)
+
+                    print('{:-<39}'.format(''),file=stderr)
+                    print('{: >24}'.format(proto.upper()+' Services'),file=stderr)
+                    print('{:-<39}'.format(''),file=stderr)
+                    print('{:16}{:15} Service'.format('Freq','Port/Proto'),file=stderr)
+                    print('{: <16}{: <15}{: >8}'.format('----','----------','-------'),file=stderr)
+                
+                    for s in services[proto]:
+                        print(
+                            f'{s.frequency:0<8}\t{str(s.port)+"/"+s.protocol:8}\t{s.name}',
+                            file=stderr
+                        )
+
+                if not csv_only:
+                    print(file=stderr)
+        
+            if not csv_only:
+                esprint('CSV List(s):\n')
+            for protocol in protocols:
+                esprint(f'{protocol}:')
+                ports = ','.join(
+                    [str(p.port) for p in sorted(services[protocol])]
+                )
+                print(ports)
+
+    else:
+
+        esprint(f'Dumping the {top} ports')
+        for proto in protocols: services[proto] = {
+            'services':{},
+            'frequencies':[],
+            'top_ports':[]
+        }
+
+        # parse the services
+        with open(default_services_path) as service_file:
+    
+            for line in service_file:
+                
+                service = parse_service(line)
+    
+                if not service or not service.protocol in protocols:
+                    continue
+    
+                srvs = services[service.protocol]['services']
+                freqs = services[service.protocol]['frequencies']
+    
+                if service.frequency not in freqs:
+                    freqs.append(service.frequency)
+    
+                if not service.frequency in srvs:
+                    srvs[service.frequency] = [service]
+                else:
+                    srvs[service.frequency].append(service)
+    
+        # Collecting the top ports per protocol
+        for proto in protocols:
+    
+            srvs = services[proto]
+            freqs = sorted(srvs['frequencies'],key=float)[-top:]
+            if not csv_only:
+                print('{:-<39}'.format(''),file=stderr)
+                print('{: >24}'.format(proto.upper()+' Services'),file=stderr)
+                print('{:-<39}'.format(''),file=stderr)
+                print('{:16}{:15} Service'.format('Freq','Port/Proto'),file=stderr)
+                print('{: <16}{: <15}{: >8}'.format('----','----------','-------'),file=stderr)
+            for freq in freqs:
+                for s in services[proto]['services'][freq]:
+                    srvs['top_ports'].append(s.port)
+                    if not csv_only:
+                        print(f'{s.frequency:0<8}\t{str(s.port)+"/"+s.protocol:8}\t{s.name}',file=stderr)
+            if not csv_only:
+                print(file=stderr)
+    
         if not csv_only:
-            print(file=stderr)
-
-    if not csv_only:
-        esprint('CSV List(s):\n')
-    for protocol in protocols:
-        esprint(f'{protocol}:')
-        ports = ','.join(
-            [str(p) for p in sorted(services[protocol]["top_ports"])]
-        )
-        print(ports)
-
+            esprint('CSV List(s):\n')
+        for protocol in protocols:
+            esprint(f'{protocol}:')
+            ports = ','.join(
+                [str(p) for p in sorted(services[protocol]["top_ports"])]
+            )
+            print(ports)
+    
     return 0
