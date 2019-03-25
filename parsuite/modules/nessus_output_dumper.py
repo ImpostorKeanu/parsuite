@@ -142,8 +142,9 @@ class ReportItem:
         output += '\n'
 
         if self.plugin_outputs:
+            output += f'\n# plugin_output'
             for op in set(self.plugin_outputs):
-                output += f'\n{op}'
+                output += f'\n\n------{op}\n\n------'
             output += '\n'
 
         return output+'\n'
