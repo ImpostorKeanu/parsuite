@@ -154,6 +154,9 @@ class ReportItem:
 
 class Report(dict):
 
+    def __init__(self,target_information):
+        self.target_information = target_information
+
     def dump(self, output_directory):
 
         # Handle output directory
@@ -162,6 +165,9 @@ class Report(dict):
         )
 
         os.chdir(bo)
+
+        with open('target_information.txt','w') as of:
+            of.write(self.target_information+'\n')
 
         risk_factors = self.keys()
 
@@ -265,7 +271,17 @@ def parse(input_file=None, output_directory=None, **kwargs):
     #   }
     # ]
 
-    report = Report()
+    for pref in tree.findall('.//preference'):
+
+        name = pref.find('./name')
+
+        if name.text == 'TARGET':
+
+            value = pref.find('./value')
+            targets = '\n'.join(value.text.split(','))
+            break
+
+    report = Report(target_information=targets)
 
     sprint('Parsing the Nessus file. This will take time...')
 
