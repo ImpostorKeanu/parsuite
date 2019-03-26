@@ -142,9 +142,12 @@ class ReportItem:
         output += '\n'
 
         if self.plugin_outputs:
+
             output += f'\n# plugin_output'
             for op in set(self.plugin_outputs):
-                output += f'\n\n------{op}\n\n------'
+                output += f'\n\n------OUTPUT CHUNK\n------{op}'\
+                        '------------------------'
+
             output += '\n'
 
         return output+'\n'
@@ -186,16 +189,6 @@ class Report(dict):
                 # =======================================================
                 # WRITE EXPLOIT FRAMEWORKS AND METASPLOIT MODULES TO DISK
                 # =======================================================
-
-#                if report_item.exploit_frameworks:
-#                    with open('exploit_frameworks.list','w') as of:              
-#                        for fw in ri.exploit_frameworks:
-#                            of.write(fw+'\n')
-#    
-#                if report_item.msf_modules:
-#                    with open('msf_modules.list','w') as of:
-#                        for m in ri.msf_modules:
-#                            of.write(m+'\n')
 
                 with open('additional_info.txt','w') as outfile:
                     outfile.write(report_item.additional_info())
@@ -276,6 +269,8 @@ def parse(input_file=None, output_directory=None, **kwargs):
 
     sprint('Parsing the Nessus file. This will take time...')
 
+    cache = []
+
     # For each report item
     for ri in tree.findall('.//ReportItem'):
 
@@ -299,6 +294,13 @@ def parse(input_file=None, output_directory=None, **kwargs):
         port = None
         if 'port' in attrs:
             port = attrs['port']
+
+        if port and protocol and plugin_id:
+            s = f'{plugin_id}:{protocol}:{port}'
+            if not s in cache:
+                cache.append(s)
+            else:
+                continue
 
         # =============================================
         # CAPTURE RISK FACTOR & MAKE A DIRECTORY FOR IT
