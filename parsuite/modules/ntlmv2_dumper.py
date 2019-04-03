@@ -12,12 +12,15 @@ USERNAME::DOMAIN:AAAAAAAAAAAAAAAA:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA:AAAAAAAAAAAAA
 
 '''
 
-help='Stuff'\
+help='Parse files containing NTLMv2 hashes in the commong format produced '\
+    'by Responder and Impacket and dump them to stdout. Messages printed '\
+    'that are not hashes are dumped to stderr. Use the -du flag to disable '\
+    'uniquing of username/domain combinations.'
 
 args = [
     DefaultArguments.input_files,
-    Argument('--unique','-u',
-        action='store_false',
+    Argument('--disable-unique','-du',
+        action='store_true',
         help='Dump only unique username/domain combinations'
     )
 ]
@@ -36,7 +39,7 @@ class NTLMv2:
 
         return self.__hsh__
 
-def parse(input_files=None, unique=True, **kwargs):
+def parse(input_files=None, disable_unique=True, **kwargs):
 
     cache = []
 
@@ -47,9 +50,10 @@ def parse(input_files=None, unique=True, **kwargs):
             for hsh in infile:
                 hsh = NTLMv2(hsh.strip())
                 _id = hsh.username+':'+hsh.domain
-                if unique and _id in cache:
-                    continue
-                elif unique:
-                    cache.append(_id)
+                if not disable_unique:
+                    if _id in cache:
+                        continue
+                    else:
+                        cache.append(_id)
                 print(hsh.__hsh__)
     esprint('Finished!')
