@@ -34,6 +34,8 @@ if __name__ == '__main__':
     
     if 'input_file' in args:
         helpers.validate_input_file(args.input_file)
+    elif 'input_files' in args:
+        helpers.validate_input_files(args.input_files)
 
     esprint(f'Executing module: {args.module}')
 

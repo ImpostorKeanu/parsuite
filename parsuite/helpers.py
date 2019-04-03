@@ -70,3 +70,8 @@ def validate_input_file(input_file):
     assert Path(input_file).exists(), (
         'Input file does not exist.'
     )
+
+def validate_input_files(input_files):
+
+    for f in input_files:
+        validate_input_file(f)
