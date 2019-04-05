@@ -64,7 +64,7 @@ def parse(input_files=None, base_output_name=True, csv=False, stdout=False, **kw
         fname = base_output_name+'_'+k
 
         if csv: fname += '.csv'
-        else: fname += '.txt.'
+        else: fname += '.txt'
 
         if stdout: esprint(f'Dumping: {k}')
 
