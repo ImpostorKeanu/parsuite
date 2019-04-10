@@ -108,7 +108,7 @@ class RDPHost:
     def dump_rdp_supported_mitm(self):
 
         if self.protocol_rdp_supported:
-            sprint(f'{self.ip} Supports RDP Protocol (Vulnerable to MITM)')
+            sprint(f'{self.ip} Supports RDP Security (Vulnerable to MITM)')
 
 def parse(input_files=None, issues_to_dump=None, hosts_only=False, **kwargs):
 
