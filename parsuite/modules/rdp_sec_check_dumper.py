@@ -85,9 +85,9 @@ class RDPHost:
 
         output = []
         if self.protocol_rdp_supported:
-            output.append('RDP Protocol Supported')
+            output.append('RDP Security Supported')
         if self.protocol_ssl_supported:
-            output.append('SSL Protocol Supported')
+            output.append('SSL Security Supported')
 
         if output:
             sprint(f'{self.ip} Supports Non-NLA Mechanisms:')
