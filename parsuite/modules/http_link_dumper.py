@@ -19,6 +19,7 @@ args = [
 
 def parse_nmap(tree, *args, **kwargs):
 
+    print('triggered')
     for host in tree.findall('.//host'):
 
         # EXTRACT THE STATUS
@@ -51,6 +52,7 @@ def parse_nmap(tree, *args, **kwargs):
             # DETERMINE IF THERE IS A TUNNEL
             tunnel = None
             if 'tunnel' in service.attrib: tunnel = service.attrib['tunnel']
+
 
             for hostname in hostnames:
 
@@ -111,9 +113,16 @@ def parse_nessus(tree, *args, **kwargs):
 def parse(input_files=None, *args, **kwargs):
 
     for input_file in input_files:
-        tree = ET.parse(input_file)
-        if tree.findall('.//policyName'): parse_nessus(tree, *args, **kwargs)
-        else: parse_nmap(tree, *args, **kwargs)
+        try:
+            tree = ET.parse(input_file)
+            if tree.findall('.//policyName').__class__ == ET.Element:
+                parse_nessus(tree, *args, **kwargs)
+            elif tree.find('.//scaninfo').__class__ == ET.Element:
+                parse_nmap(tree, *args, **kwargs)
+            else: esprint(f'Unknown document provided: {input_file}')
+        except Exception as e:
+            esprint(f'Unknown exception occurred while parsing: {input_file}')
+            print('\n'+e.__str__()+'\n')
 
     return 0
    
