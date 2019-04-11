@@ -19,7 +19,6 @@ args = [
 
 def parse_nmap(tree, *args, **kwargs):
 
-    print('triggered')
     for host in tree.findall('.//host'):
 
         # EXTRACT THE STATUS
