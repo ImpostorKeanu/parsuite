@@ -114,7 +114,7 @@ def parse(input_files=None, *args, **kwargs):
     for input_file in input_files:
         try:
             tree = ET.parse(input_file)
-            if tree.findall('.//policyName').__class__ == ET.Element:
+            if tree.find('.//policyName').__class__ == ET.Element:
                 parse_nessus(tree, *args, **kwargs)
             elif tree.find('.//scaninfo').__class__ == ET.Element:
                 parse_nmap(tree, *args, **kwargs)
