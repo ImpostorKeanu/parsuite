@@ -1,20 +1,31 @@
 #!/usr/bin/env python3
 
+from IPython import embed
+
 import argparse
 import os
 from pathlib import Path
 from sys import exit, modules as sys_modules
+from re import search
 
 from parsuite import modules
 from parsuite import helpers
 from parsuite.core.suffix_printer import *
-from parsuite.core.argument import Argument
+from parsuite.core.argument import (Argument,ArgumentGroup,
+    MutuallyExclusiveArgumentGroup)
+
+def add_args(dst_obj,args):
+    '''Add arguments to a parser object. Useful when initializing
+    an argument group.
+    '''
+
+    for arg in args:
+        dst_obj.add_argument(*arg.pargs, **arg.kwargs)
 
 if __name__ == '__main__':
 
     ap = argument_parser = argparse.ArgumentParser(
         description='Parse the planet.')
-
 
     subparsers = ap.add_subparsers(help='Parser module selection.')
     subparsers.required = True
@@ -28,7 +39,24 @@ if __name__ == '__main__':
         sub = subparsers.add_parser(handle,help=module.help)
 
         for arg in module.args:
-            sub.add_argument(*arg.pargs, **arg.kwargs)
+
+            if arg.__class__ == ArgumentGroup:
+
+                group = sub.add_argument_group(*arg.pargs, **arg.kwargs)
+                add_args(group,arg)
+
+            if arg.__class__ == MutuallyExclusiveArgumentGroup:
+
+
+                group = sub.add_mutually_exclusive_group(
+                    *arg.pargs, **arg.kwargs
+                )
+                add_args(group,arg)
+
+
+            else:
+
+                sub.add_argument(*arg.pargs, **arg.kwargs)
 
     args = ap.parse_args()
     
