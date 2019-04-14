@@ -35,9 +35,7 @@ args = [
         required=True,
         arguments=[
             Argument('--host-only','-ho',
-                action='store_const',
-                dest='fmt',
-                const='{address}',
+                action='store_true',
                 help='Dump unique IP addresses without ports.'),
             Argument('--fmt','-f',choices=list(formats.keys()),
                 default='default',
@@ -67,29 +65,22 @@ def protocol_printer(protocols,address=None,fmt='{protocol}/{port}'):
                         port=port)
                 )
 
-def dump(report,fmt):
+def dump(report,fmt,host_only):
 
-    try:
+    if host_only:
+        print('\n'.join(report.keys()))
+        return
 
-        for address,protocols in report.items():
-            
-            header = f'Open ports for: {address}'
-            ban_len = len(header)
-    
-            if fmt == formats['default']:
-                print()
-                print('{}\n{:-<{ban_len}}'.format(header,'',ban_len=ban_len))
-    
-            protocol_printer(protocols,address=address,fmt=fmt)
+    for address,protocols in report.items():
+        
+        header = f'Open ports for: {address}'
+        ban_len = len(header)
 
-    except KeyError as error:
+        if fmt == formats['default']:
+            print()
+            print('{}\n{:-<{ban_len}}'.format(header,'',ban_len=ban_len))
 
-        print('\nKeyError occurred. This indicates that an invalid keyword has been'\
-            ' supplied for formatting. See --help.',
-            file=stderr)
-        sprint('Only the following keywords are available for formatting:'\
-            ' protocol, address, port')
-        print()
+        protocol_printer(protocols,address=address,fmt=fmt)
 
 def parse_nmap(tree,no_services):
     
@@ -135,6 +126,7 @@ def parse_nessus(tree,no_services):
     for rhost in tree.findall('.//ReportItem/..'):
         ip = rhost.find('.//tag[@name="host-ip"]')
         if ip == None: ip = rhost.attrib['name']
+        else: ip = ip.text
 
         ports = {}
         for ri in rhost.findall('.//ReportItem'):
@@ -150,7 +142,7 @@ def parse_nessus(tree,no_services):
 def parse_masscan(*args,**kwargs):
     return parse_nmap(*args,**kwargs)
 
-def parse(input_files=None, fmt=None, no_services=None, *args, **kwargs):
+def parse(input_files=None, fmt=None, no_services=None, host_only=False, *args, **kwargs):
 
     if fmt in formats: fmt = formats[fmt]
     report = {}
@@ -167,7 +159,8 @@ def parse(input_files=None, fmt=None, no_services=None, *args, **kwargs):
           #        {state (open/closed):[integer_ports]}
           #     }
           # }
-
+          
+        # {ip_address: {protocol (tcp/ip): {state:ports}}}
         for ip_address, protocol_struct in ireport.items():
 
             if not ip_address in report:
@@ -175,7 +168,8 @@ def parse(input_files=None, fmt=None, no_services=None, *args, **kwargs):
                 report[ip_address] = protocol_struct
 
             else:
-
+                
+                #    {protocol (tcp/ip): {state:ports}}
                 for protocol,port_struct in protocol_struct.items():
                 
                     if not protocol in report[ip_address]:
@@ -186,6 +180,7 @@ def parse(input_files=None, fmt=None, no_services=None, *args, **kwargs):
 
                         report_port_struct = report[ip_address][protocol]
 
+                        # {state:ports}
                         for state,ports in port_struct.items():
 
                             if not state in report_port_struct:
@@ -198,6 +193,6 @@ def parse(input_files=None, fmt=None, no_services=None, *args, **kwargs):
                                         report_port_struct[state].append(port)
 
 
-    dump(report,fmt)
+    dump(report,fmt,host_only)
 
     return 0
