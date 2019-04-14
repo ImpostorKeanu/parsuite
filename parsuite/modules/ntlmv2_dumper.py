@@ -12,7 +12,7 @@ USERNAME::DOMAIN:AAAAAAAAAAAAAAAA:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA:AAAAAAAAAAAAA
 
 '''
 
-help='Parse files containing NTLMv2 hashes in the commong format produced '\
+help='Parse files containing NTLMv2 hashes in the common format produced '\
     'by Responder and Impacket and dump them to stdout. Messages printed '\
     'that are not hashes are dumped to stderr. Use the -du flag to disable '\
     'uniquing of username/domain combinations.'

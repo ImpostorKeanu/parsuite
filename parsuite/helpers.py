@@ -3,6 +3,30 @@ from parsuite.core.suffix_printer import *
 from shutil import rmtree
 import types
 
+def fingerprint_xml(tree):
+    '''Query an etree object to determine the file format. Will return
+    the name of the program that generated the file. Currently
+    supported:
+
+    - nmap
+    - nessus
+    - masscan
+    '''
+
+    ele = tree.find('[@scanner]')
+
+    fingerprint = None
+    if ele:
+        if ele.attrib['scanner'] == 'masscan':
+            fingerprint =  'nmap'
+        elif ele.attrib['scanner'] == 'nmap':
+            fingerprint =  'nmap'
+    elif tree.find('.//policyName').__class__ == ET.Element:
+        fingerprint =  'nessus'
+
+    return fingerprint
+
+
 def validate_module(module):
 
     attrs = module.__dir__()

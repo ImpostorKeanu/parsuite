@@ -114,11 +114,12 @@ def parse(input_files=None, *args, **kwargs):
     for input_file in input_files:
         try:
             tree = ET.parse(input_file)
-            if tree.find('.//policyName').__class__ == ET.Element:
-                parse_nessus(tree, *args, **kwargs)
-            elif tree.find('.//scaninfo').__class__ == ET.Element:
-                parse_nmap(tree, *args, **kwargs)
-            else: esprint(f'Unknown document provided: {input_file}')
+            fingerprint = helpers.fingerprint_xml(tree)
+            if not fingerprint:
+                esprint(f'Unknown document provided: {input_file}')
+            esprint(f'Dumping {fingerprint} file: {input_file}')
+            locals()['parse_'+fingerprint](tree, *args, **kwargs)
+
         except Exception as e:
             esprint(f'Unknown exception occurred while parsing: {input_file}')
             print('\n'+e.__str__()+'\n')
