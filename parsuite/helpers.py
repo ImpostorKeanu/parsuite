@@ -1,6 +1,7 @@
 from pathlib import Path
 from parsuite.core.suffix_printer import *
 from shutil import rmtree
+from xml.etree.ElementTree import Element
 import types
 
 def fingerprint_xml(tree):
@@ -21,7 +22,7 @@ def fingerprint_xml(tree):
             fingerprint =  'nmap'
         elif ele.attrib['scanner'] == 'nmap':
             fingerprint =  'nmap'
-    elif tree.find('.//policyName').__class__ == ET.Element:
+    elif tree.find('.//policyName').__class__ == Element:
         fingerprint =  'nessus'
 
     return fingerprint

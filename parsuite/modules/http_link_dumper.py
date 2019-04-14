@@ -118,7 +118,7 @@ def parse(input_files=None, *args, **kwargs):
             if not fingerprint:
                 esprint(f'Unknown document provided: {input_file}')
             esprint(f'Dumping {fingerprint} file: {input_file}')
-            locals()['parse_'+fingerprint](tree, *args, **kwargs)
+            globals()['parse_'+fingerprint](tree, *args, **kwargs)
 
         except Exception as e:
             esprint(f'Unknown exception occurred while parsing: {input_file}')
