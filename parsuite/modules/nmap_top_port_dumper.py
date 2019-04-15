@@ -163,7 +163,11 @@ def parse(csv_only=None,
         for proto in protocols:
     
             srvs = services[proto]
-            freqs = reversed(sorted(srvs['frequencies'],key=float)[-top:][:-offset])
+
+            if offset:
+                freqs = reversed(sorted(srvs['frequencies'],key=float)[-top:][:-offset])
+            else:
+                freqs = reversed(sorted(srvs['frequencies'],key=float)[-top:])
 
             if not csv_only:
                 print('{:-<39}'.format(''),file=stderr)
