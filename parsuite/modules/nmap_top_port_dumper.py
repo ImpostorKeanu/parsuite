@@ -29,7 +29,10 @@ args = [
         help='Search all service names and dump matches'),
     Argument('--minimum-frequency', '-mf', default=0.000001,
         type=float,
-        help='Minimum frequency that must be met for a given service')
+        help='Minimum frequency that must be met for a given service'),
+    Argument('--offset',default=0,
+        type=int,
+        help='Dump top ports from offset onward.')
 ]
 
 Service = namedtuple(
@@ -61,7 +64,10 @@ def parse_service(line,minimum_frequency=None):
 
 def parse(csv_only=None,
         tcp=None, udp=None, sctp=None, top=None, all_protocols=False,
-        minimum_frequency=None, name_search=None, **kwargs):
+        minimum_frequency=None, name_search=None, offset=0,**kwargs):
+
+    if offset >= top:
+        raise Exception('Offset must be less than top')
 
     if not Path(default_services_path).exists() and not input_file:
         esprint('Services file not detected. Either nmap isn\'t installed or you\'re not using'\
@@ -157,7 +163,8 @@ def parse(csv_only=None,
         for proto in protocols:
     
             srvs = services[proto]
-            freqs = sorted(srvs['frequencies'],key=float)[-top:]
+            freqs = reversed(sorted(srvs['frequencies'],key=float)[-top:][:-offset])
+
             if not csv_only:
                 print('{:-<39}'.format(''),file=stderr)
                 print('{: >24}'.format(proto.upper()+' Services'),file=stderr)
