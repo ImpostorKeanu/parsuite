@@ -19,7 +19,7 @@ args = [
         type=str,
         help='''String delimiter used for each line of output.
         Default: newline (\\n)
-        '''
+        '''),
     # TODO
     Argument(
         '--format','-f',
@@ -129,16 +129,17 @@ def parse(input_files, format, all_addresses, fqdns,
         tree = ET.parse(input_file)
         fingerprint = helpers.fingerprint_xml(tree)
         for address,host in globals()['parse_'+fingerprint](tree,port_required).items():
-            if address not in final_report:
+            if not address in final_report:
                 final_report[address] = host
             else:
-                for port in host.portlist:
+                for port in host.ports:
                     final_report[address].append_port(port)
+
 
     # Print ips and fqdns
     if all_addresses:
 
-        if format == 'addresses':
+        if format == 'address':
 
             for address,host in final_report.items():
                 output = []
@@ -156,13 +157,22 @@ def parse(input_files, format, all_addresses, fqdns,
     # Print fqdns
     elif fqdns and host.hostnames:
 
-        if format == 'addresses':
+        if format == 'address':
             print('\n'.join(host.hostnames))
 
-    # Just print addresses
+    # Just print address
     else:
 
-        if format == 'addresses':
+        if format == 'address':
             print('\n'.join(final_report.keys()))
+        
+        elif format == 'socket':
+
+            for address,host in final_report.items():
+
+                    for port in host.ports:
+
+                        if port.protocol in protocols:
+                            print(f'{address}:{port.number}')
 
     return 0

@@ -146,7 +146,7 @@ class PortList(list):
 
         super().__setitem__(key,value,*args,**kwargs)
 
-    def append(self,value):
+    def append(self,value,*args,**kwargs):
         '''Override append enforce type.
         '''
 
@@ -244,6 +244,7 @@ class Host:
             )
 
         self.__getattribute__(port.protocol+'_ports').append_port(port)
+        self.ports.append(port)
 
     def get_addresses(self,fqdns=False):
 
