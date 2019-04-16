@@ -19,7 +19,7 @@ def fingerprint_xml(tree):
     fingerprint = None
     if ele:
         if ele.attrib['scanner'] == 'masscan':
-            fingerprint =  'nmap'
+            fingerprint =  'masscan'
         elif ele.attrib['scanner'] == 'nmap':
             fingerprint =  'nmap'
     elif tree.find('.//policyName').__class__ == Element:

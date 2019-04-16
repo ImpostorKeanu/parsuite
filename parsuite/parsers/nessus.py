@@ -19,12 +19,16 @@ def parse_nessus(tree,no_services):
     for rhost in tree.findall('.//ReportItem/..'):
 
         name = rhost.get('name')
-        if name != None: name = name.text
+        if name == None: name = None
         
         host_ip = rhost.find('.//tag[@name="host-ip"]')
-        if host_ip != None: host_ip = ip.text
+        if host_ip != None: host_ip = host_ip.text
+        else: host_ip = name
 
-        if match(r'([0-9]{1,3}\.){3)',host_ip):
+        # bush league
+        if not name and not host_ip: continue
+
+        if match(r'([0-9]{1,3}\.){3}',host_ip):
             ipv4_address = host_ip
             ipv6_address = None
         else:

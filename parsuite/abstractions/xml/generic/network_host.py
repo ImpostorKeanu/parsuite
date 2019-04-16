@@ -52,7 +52,7 @@ class Service:
         ostype=None,devicetype=None):
 
         self.name = name
-        self.conf = conf
+        self.confs = confs
         self.method = method
         self.version = version
         self.product = product
