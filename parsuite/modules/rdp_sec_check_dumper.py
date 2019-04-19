@@ -11,33 +11,41 @@ help='Parse files containing NTLMv2 hashes in the commong format produced '\
     'uniquing of username/domain combinations.'
 
 ISSUE_CHOICES=['nla_not_enforced',
-#'insecure_encryption_levels_supported',
+'insecure_encryption_levels',
 'rdp_supported_mitm']
 
 args = [
     DefaultArguments.input_files,
-    Argument('--issues-to-dump','-i',
-        nargs='+',
-        choices = ISSUE_CHOICES+['all'],
+    Argument('--issue','-i',
+        choices = ISSUE_CHOICES,
         required=True,
         help='Select which issues to dump by.'),
-    Argument('--hosts-only',
+    Argument('--sockets-only','-so',
         action='store_true',
-        help='Dump only hosts affected by the issues')
+        help='Dump only hosts affected by the issues'),
+    Argument('--write-socket-logs','-sl',
+        action='store_true',
+        help='Write affected sockets to log files.'),
 ]
 
 class RDPHost:
 
     def __init__(self,output_block):
 
+        self.ip = None
+        self.port = None
+        self.target = None
+        self.socket = None
+
         self.protocol_rdp_supported = False
         self.protocol_ssl_supported = False
         self.protocol_hybrid_supported = False
-        self.encryption_method_none_supported = False
-        self.encryption_method_40bit_supported = False
-        self.encryption_method_128bit_supported = False
-        self.encryption_method_56bit_supported = False
-        self.encryption_method_fips_supported = False
+
+        self.encryption_method_none = False
+        self.encryption_method_40bit = False
+        self.encryption_method_128bit = False
+        self.encryption_method_56bit = False
+        self.encryption_method_fips = False
 
         self.issues = []
         for line in output_block:
@@ -68,14 +76,15 @@ class RDPHost:
 
             # extract encryption support from summary
             match = re.search(
-                r'ENCRYPTION_METHOD_(?P<method>(NONE|40BIT|128BIT|56BIT|FIPS)).+:\s+(?P<supported>.+)',
+                r' supports ENCRYPTION_METHOD_(?P<method>(NONE|40BIT|128BIT|56BIT|FIPS)).+:\s+(?P<supported>.+)',
                 line
             )
             if match:
                 gd = match.groupdict()
                 if gd['supported'] == 'TRUE': supported = True
                 else: supported = False
-                self.__setattr__(f'encryption_method_{gd["method"].lower()}_supported',supported)
+                method = gd["method"].lower()
+                self.__setattr__(f'encryption_method_{method}',supported)
                 continue
 
             # extract summary of security issues
@@ -87,14 +96,18 @@ class RDPHost:
                 issue = match.groupdict()['issue']
                 self.issues.append(issue.lower())
 
+        if self.ip and self.port: self.socket = f'{self.ip}:{self.port}'
+
     def __str__(self):
         return str(self.__dict__)
 
     def dump_nla_not_enforced(self):
 
         output = []
+
         if self.protocol_rdp_supported:
             output.append('RDP Security')
+
         if self.protocol_ssl_supported:
             output.append('SSL Security')
 
@@ -102,13 +115,13 @@ class RDPHost:
             sprint(f'{self.ip} Supports Non-NLA Mechanisms:')
             print('- '+('\n- '.join(output))+'\n')
 
-    def dump_insecure_encryption_levels_supported(self):
+    def dump_insecure_encryption_levels(self):
 
         output = []
-        if self.encryption_method_40bit_supported:
-            output.append('40bit Encryption Method')
-        if self.encryption_method_56bit_supported:
-            output.append('56bit Encryption Method')
+        if self.encryption_method_40bit:
+            output.append('40bit: Low Encryption Method')
+        if self.encryption_method_56bit:
+            output.append('56bit: Medium Encryption Method')
 
         if output:
             sprint(f'{self.ip} Supports Insecure Encryption Levels:')
@@ -119,7 +132,8 @@ class RDPHost:
         if self.protocol_rdp_supported:
             print(f'Supports RDP Security (Vulnerable to MITM): {self.ip}')
 
-def parse(input_files=None, issues_to_dump=None, hosts_only=False, **kwargs):
+def parse(input_files=None, issue=None, sockets_only=False, 
+        write_socket_logs=False, **kwargs):
 
     report = {}
     esprint(f'Parsing hash files: {",".join(input_files)}')
@@ -151,7 +165,7 @@ def parse(input_files=None, issues_to_dump=None, hosts_only=False, **kwargs):
                     target_block.append(line)
 
     nla_not_enforced = []
-    insecure_encryption_levels_supported = []
+    insecure_encryption_levels= []
     rdp_supported_mitm = []
     for ip,rdp_host in report.items():
 
@@ -162,19 +176,19 @@ def parse(input_files=None, issues_to_dump=None, hosts_only=False, **kwargs):
             rdp_supported_mitm.append(rdp_host)
 
         for key in ['40bit','56bit']:
-            if rdp_host.__getattribute__(f'encryption_method_{key}_supported'):
-                insecure_encryption_levels_supported.append(rdp_host)
+            if rdp_host.__getattribute__(f'encryption_method_{key}'):
+                insecure_encryption_levels.append(rdp_host)
 
-    if 'all' in issues_to_dump: issues_to_dump = ISSUE_CHOICES
+    lst = locals()[issue]
+    esprint(f'Dumping issue type: {issue}')
+    if sockets_only:
+        for host in lst: print(host.socket)
+    else:
+        for host in lst:
+            host.__getattribute__('dump_'+issue)()
 
-    for key in issues_to_dump:
-
-        lst = locals()[key]
-        if hosts_only:
-            for host in lst: print(host.ip)
-        else:
-            sprint(f'Dumping issue type: {key}')
-            for host in lst:
-                host.__getattribute__('dump_'+key)()
+    if write_socket_logs:
+        with open(issue+'.log','w') as outfile:
+            for host in lst: outfile.write(host.socket+'\n')
 
     esprint('Finished!')
