@@ -30,6 +30,15 @@ class RDPHost:
 
     def __init__(self,output_block):
 
+        self.protocol_rdp_supported = False
+        self.protocol_ssl_supported = False
+        self.protocol_hybrid_supported = False
+        self.encryption_method_none_supported = False
+        self.encryption_method_40bit_supported = False
+        self.encryption_method_128bit_supported = False
+        self.encryption_method_56bit_supported = False
+        self.encryption_method_fips_supported = False
+
         self.issues = []
         for line in output_block:
 
@@ -85,13 +94,13 @@ class RDPHost:
 
         output = []
         if self.protocol_rdp_supported:
-            output.append('RDP Security Supported')
+            output.append('RDP Security')
         if self.protocol_ssl_supported:
-            output.append('SSL Security Supported')
+            output.append('SSL Security')
 
         if output:
             sprint(f'{self.ip} Supports Non-NLA Mechanisms:')
-            print('\n- '+('\n- '.join(output))+'\n')
+            print('- '+('\n- '.join(output))+'\n')
 
     def dump_insecure_encryption_levels_supported(self):
 
@@ -103,12 +112,12 @@ class RDPHost:
 
         if output:
             sprint(f'{self.ip} Supports Insecure Encryption Levels:')
-            print('\n- '+('\n- '.join(output))+'\n')
+            print('- '+('\n- '.join(output))+'\n')
 
     def dump_rdp_supported_mitm(self):
 
         if self.protocol_rdp_supported:
-            sprint(f'{self.ip} Supports RDP Security (Vulnerable to MITM)')
+            print(f'Supports RDP Security (Vulnerable to MITM): {self.ip}')
 
 def parse(input_files=None, issues_to_dump=None, hosts_only=False, **kwargs):
 
