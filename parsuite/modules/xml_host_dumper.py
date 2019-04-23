@@ -24,8 +24,14 @@ args = [
     Argument(
         '--format','-f',
         required=True,
-        choices=['socket','address','uri','address-ports'],
+        choices=['sockets','addresses','uris','address-ports'],
         help='''Output format. Default: %(default)s'''),
+    Argument(
+        '--transport-layer','-tl',
+        action='store_true',
+        help='''When printing URIs, use the application layer for
+        the scheme component, e.g. tcp instead of http'''
+    ),
     # TODO
     Argument(
         '--all-addresses',
@@ -48,10 +54,16 @@ args = [
     Argument(
         '--port-search',
         nargs='+',
+        default=[],
         type=int,
         help='''Return hosts only when they have matching open ports.
         Default: %(default)s
         '''),
+    Argument(
+        '--sreg','-pr',
+        action='store_true',
+        help='''Treat service searches as individual regexes.'''
+    ),
     # TODO
     Argument(
         '--service-search',
@@ -97,7 +109,7 @@ class Report(dict):
                 for port in host.portlist:
                     self[address].append_port(port)
 
-    def query_addresses(self,port_required=True,port_search=None,
+    def query_addresses(self,port_required=True,port_search=[],
             service_search=None,protocols=['tcp'],*args,**kwargs):
         '''Extract addresses from the report.
         '''
@@ -105,13 +117,13 @@ class Report(dict):
         #TODO: Pick up here!
         output = []
 
-    def query_sockets(self,port_required=True,port_search=None,
+    def query_sockets(self,port_required=True,port_search=[],
             service_search=None,protocols=['tcp'],*args,**kwargs):
         '''Extract addresses from the report.
         '''
         pass
 
-    def query_uris(self,port_required=True,port_search=None,
+    def query_uris(self,port_required=True,port_search=[],
             service_search=None,protocols=['tcp'],mangle_http=False,
             *args,**kwargs):
         '''Extract addresses from the report.
@@ -120,59 +132,50 @@ class Report(dict):
 
 def parse(input_files, format, all_addresses, fqdns, 
         port_required, port_search, service_search,
-        mangle_http, protocols, *args, **kwargs):
+        mangle_http, protocols, transport_layer,
+        delimiter, *args, **kwargs):
 
-    # Parse the input files
+    # ==========================
+    # NEGOTIATE THE SCHEME LAYER
+    # ==========================
+
+    if format == 'uris':
+        if transport_layer: scheme_layer = 'transport'
+        else: scheme_layer = 'application'
+    else:
+        scheme_layer = False
+
+    # ==============================================
+    # PARSE EACH INPUT FILE INTO A REPORT DICTIONARY
+    # ==============================================
+
     final_report = {}
     for input_file in input_files:
         
         tree = ET.parse(input_file)
         fingerprint = helpers.fingerprint_xml(tree)
-        for address,host in globals()['parse_'+fingerprint](tree,port_required).items():
+        for address,host in globals()['parse_'+fingerprint](tree,port_required) \
+            .items():
             if not address in final_report:
                 final_report[address] = host
             else:
                 for port in host.ports:
                     final_report[address].append_port(port)
 
+    # ==========================
+    # DUMP THE RESULTS TO STDOUT
+    # ==========================
 
-    # Print ips and fqdns
-    if all_addresses:
-
-        if format == 'address':
-
-            for address,host in final_report.items():
-                output = []
-                if host.ipv4_address and host.ipv4_address != address:
-                    output.append(host.ipv4_address)
-                if host.ipv6_address and host.ipv6_address != address:
-                    output.append(host.ipv6_address)
-                output += host.hostnames
-    
-                if output:
-                    print(f'{address}:'+','.join(output))
-                else:
-                    print(address)
-
-    # Print fqdns
-    elif fqdns and host.hostnames:
-
-        if format == 'address':
-            print('\n'.join(host.hostnames))
-
-    # Just print address
-    else:
-
-        if format == 'address':
-            print('\n'.join(final_report.keys()))
-        
-        elif format == 'socket':
-
-            for address,host in final_report.items():
-
-                    for port in host.ports:
-
-                        if port.protocol in protocols:
-                            print(f'{address}:{port.number}')
+    print(port_search)
+    output = []
+    for address,host in final_report.items():
+        output += host.__getattribute__('to_'+format)(
+            fqdns=fqdns,
+            open_only=True,
+            protocols=protocols,
+            scheme_layer=scheme_layer,
+            port_search=port_search,
+        )
+    print(delimiter.join(output))
 
     return 0

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from re import search
+from sys import exit
 
 class Script:
     '''A basic representation of an Nmap script.
@@ -62,6 +63,10 @@ class Service:
         self.hostname = hostname
         self.ostype = ostype
         self.devicetype = devicetype
+
+    def __eq__(self,val):
+        if self.name == val: return True
+        else: return False
 
 class Port:
     '''A basic class representing an Nmap port object.
@@ -159,12 +164,12 @@ class PortList(list):
         # the new one.
         known_port = self.get('protocol',value.protocol) \
             .get('number',value.number)
-        if known_port: self.remove(known_port)
+        if known_port: self.remove(known_port[0])
 
         # Append the port
         super().append(value,*args,**kwargs)
 
-    def get(self,attr,value):
+    def get(self,attr,value,regexp=False):
         '''Get ports from the list where the attribute value matches that of
         port objects in the list. Returns a port list, facilitating additional
         queries on the ports returned from the previous.
@@ -175,7 +180,12 @@ class PortList(list):
                 f'attr must be a PortObject attribute {Port.ATTRIBUTES}'
             )
 
-        return PortList([p for p in self if p.__getattribute__(attr) == value])
+        if not regexp:
+            return PortList([p for p in self if p.__getattribute__(attr) == value])
+        else:
+            return PortList([p for p in self if
+                re.search(value,p.__getattribute__(attr))]
+            )
 
 class Host:
     '''Produces objects that resemble an Nmap host.
@@ -246,7 +256,27 @@ class Host:
         self.__getattribute__(port.protocol+'_ports').append_port(port)
         self.ports.append(port)
 
-    def get_addresses(self,fqdns=False):
+    def get_addresses(self,fqdns=False, port_search=[], service_search=[],
+            sreg=False,*args, **kwargs):
+
+        for port in port_search:
+            if not self.ports.get('number',port).get('state','open'):
+                return []
+
+        if service_search:
+            matched = False
+            for service in service_search:
+
+                if sreg:
+                    if self.ports.get('service',service,True):
+                        matched = True
+                        break
+                else:
+                    if self.ports.get('service',service):
+                        matched = True
+                        break
+                    
+            if not matched: return []
 
         if fqdns:
             addresses = self.hostnames
@@ -265,52 +295,95 @@ class Host:
 
         return addresses
 
-    def to_sockets(self,fqdns=False,open_only=True,protocols=['tcp'],
-            with_scheme=False,service_layer=False,mangle_http=False):
+    def to_addresses(self,*args,**kwargs):
+        return self.get_addresses(*args,**kwargs)
 
+    def to_sockets(self,fqdns=False,open_only=True,protocols=['tcp'],
+            scheme_layer=None,mangle_functions=[],port_search=[],
+            service_search=[],*args,**kwargs):
+        """
+        Return a list of socket values derived from service objects
+        associated with a given host.
+
+        fqdns - boolean - Determine if fqdns should be returned
+        open_only - return only open port
+        protocols - list - list of valid protocols
+        scheme_layer - string - application or transport layer
+        mangle_functions - a list of functions which the string
+        final address will be passed to. Useful for mangling services
+        to specific values.
+        """
+
+        # =============
+        # ENFORCE TYPES
+        # =============
+
+        # Assure protocols is a list
         if protocols.__class__ != list:
             raise TypeError(
                 'protocols must be a list'
             )
 
+        # Assure valid scheme type is supplied
+        if scheme_layer:
+            if not scheme_layer in ['transport','application']:
+                raise ValueError(
+                    'scheme_layer must be either transport or application'
+                )
+
         addresses = self.get_addresses(fqdns=fqdns)
         output = []
 
         for transport_protocol in protocols:
-            for port_number,port in self.__getattribute__(transport_protocol+'_ports').items():
+            for port_number,port in self \
+                .__getattribute__(transport_protocol+'_ports') \
+                .items():
 
+                if port_search and not port.number in port_search:
+                    continue
 
-                if with_scheme:
+                if service_search:
+                    if not port.service: continue
+                    if not port.service.name in service_search:
 
-                    if service_layer and port.service:
-                        protocol = port.service.name
-                    else:
-                        protocol = transport_protocol
+                        matched = False
+                        for ser in service_search:
+                            if re.search(ser,port.service.name):
+                                matched=True
+                                break
 
+                        if not matched: continue
 
-                    if mangle_http and search(r'http',protocol):
+                # =======================
+                # BUILD THE SCHEME PREFIX
+                # =======================
 
-                        if port.service.tunnel: protocol = 'https'
-                        else: protocol = 'http'
-
-                    for address in addresses:
-                        output.append(
-                            f'{protocol}://{address}:{port.number}'
-                        )
-
+                if scheme_layer == 'transport':
+                    scheme = transport_protocol+'://'
+                elif scheme_layer == 'application' and port.service:
+                    scheme = port.service.name+'://'
                 else:
+                    scheme = ''
+                
+                # ====================
+                # FORMAT THE ADDRESSES
+                # ====================
 
-                    for address in addresses:
-                        output.append(f'{address}:{port.number}')
+                for address in addresses:
+                    addr = f'{scheme}{address}:{port.number}'
+                    for func in mangle_functions:
+                        addr = func(addr)
+                    output.append(addr)
 
         return output
 
     def to_uris(self,fqdns=False,protocols=['tcp'],open_only=True,
-            service_layer=True,mangle_http=False):
+            scheme_layer='application',mangle_functions=[],
+            port_search=[]):
+        """Return a list of URIs derived from the sockets associated
+        with a given host.
+        """
 
-        return self.to_sockets(fqdns=fqdns,
-            protocols=protocols,
-            open_only=open_only,
-            with_scheme=True,
-            service_layer=True,
-            mangle_http=mangle_http)
+        return self.to_sockets(fqdns=fqdns, protocols=protocols,
+            open_only=open_only, scheme_layer=scheme_layer,
+            mangle_functions=mangle_functions,port_search=port_search)
