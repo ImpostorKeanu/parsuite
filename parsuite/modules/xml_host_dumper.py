@@ -133,7 +133,7 @@ class Report(dict):
 def parse(input_files, format, all_addresses, fqdns, 
         port_required, port_search, service_search,
         mangle_http, protocols, transport_layer,
-        delimiter, *args, **kwargs):
+        delimiter, sreg, *args, **kwargs):
 
     # ==========================
     # NEGOTIATE THE SCHEME LAYER
@@ -166,7 +166,6 @@ def parse(input_files, format, all_addresses, fqdns,
     # DUMP THE RESULTS TO STDOUT
     # ==========================
 
-    print(port_search)
     output = []
     for address,host in final_report.items():
         output += host.__getattribute__('to_'+format)(
@@ -175,6 +174,8 @@ def parse(input_files, format, all_addresses, fqdns,
             protocols=protocols,
             scheme_layer=scheme_layer,
             port_search=port_search,
+            service_search=service_search,
+            sreg=sreg,
         )
     print(delimiter.join(output))
 

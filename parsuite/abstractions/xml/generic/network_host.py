@@ -2,6 +2,7 @@
 
 from re import search
 from sys import exit
+from IPython import embed
 
 class Script:
     '''A basic representation of an Nmap script.
@@ -169,7 +170,7 @@ class PortList(list):
         # Append the port
         super().append(value,*args,**kwargs)
 
-    def get(self,attr,value,regexp=False):
+    def get(self,attr,value,regexp=False,value_attr=None):
         '''Get ports from the list where the attribute value matches that of
         port objects in the list. Returns a port list, facilitating additional
         queries on the ports returned from the previous.
@@ -179,13 +180,22 @@ class PortList(list):
             raise TypeError(
                 f'attr must be a PortObject attribute {Port.ATTRIBUTES}'
             )
-
         if not regexp:
             return PortList([p for p in self if p.__getattribute__(attr) == value])
         else:
-            return PortList([p for p in self if
-                re.search(value,p.__getattribute__(attr))]
-            )
+            # TODO: Finish negotiation of attribute of attr object
+            # for a service, should be `name`
+            if value_attr:
+                print(attr.__class__,attr)
+                return PortList([p for p in self if search(
+                    value,p.__getattribute__(attr) \
+                        .__getattribute__(value_attr)
+                    )]
+                )
+            else:
+                return PortList([p for p in self if
+                    search(value,p.__getattribute__(attr))]
+                )
 
 class Host:
     '''Produces objects that resemble an Nmap host.
@@ -257,37 +267,76 @@ class Host:
         self.ports.append(port)
 
     def get_addresses(self,fqdns=False, port_search=[], service_search=[],
-            sreg=False,*args, **kwargs):
+            sreg=False, port_required=False, *args, **kwargs):
+
+        # =============================
+        # REQUIRE AT LEAST AN OPEN PORT
+        # =============================
+
+        if port_required and not self.ports.get('state','open'):
+            return []
+
+        # =======================
+        # SEARCH FOR PORT NUMBERS
+        # =======================
 
         for port in port_search:
             if not self.ports.get('number',port).get('state','open'):
                 return []
 
+        # ===============
+        # SEARCH SERVICES
+        # ===============
+
         if service_search:
             matched = False
             for service in service_search:
 
+                print(service.__class__,service)
+
+                # ===================
+                # HANDLE REGEX SEARCH
+                # ===================
+
                 if sreg:
-                    if self.ports.get('service',service,True):
+
+                    if self.ports.get(attr='service',value=service,
+                        regexp=True,value_attr='name'):
                         matched = True
                         break
+
+                # ===================
+                # HANDLE MATCH SEARCH
+                # ===================
+
                 else:
+
                     if self.ports.get('service',service):
                         matched = True
                         break
                     
             if not matched: return []
 
+        # ================================
+        # EXTRACT HOSTNAMES WHEN REQUESTED
+        # ================================
+
         if fqdns:
             addresses = self.hostnames
         else:
             addresses = []
+
+        # ================
+        # GET IP ADDRESSES
+        # ================
+        # TODO: add option for ipv4/6/fqdn option
 
         if self.ipv4_address:
             addresses.append(self.ipv4_address)
         elif self.ipv4_address:
             addresses.append(self.ipv6_address)
 
+        # Assure host has at least one address
         if not addresses:
             raise Exception(
                 'Host has no address'
@@ -300,7 +349,7 @@ class Host:
 
     def to_sockets(self,fqdns=False,open_only=True,protocols=['tcp'],
             scheme_layer=None,mangle_functions=[],port_search=[],
-            service_search=[],*args,**kwargs):
+            service_search=[],sreg=None,*args,**kwargs):
         """
         Return a list of socket values derived from service objects
         associated with a given host.
@@ -339,16 +388,37 @@ class Host:
                 .__getattribute__(transport_protocol+'_ports') \
                 .items():
 
+                # ==============
+                # DO PORT SEARCH
+                # ==============
+
                 if port_search and not port.number in port_search:
                     continue
 
+                # =================
+                # DO SERVICE SEARCH
+                # =================
+
                 if service_search:
-                    if not port.service: continue
-                    if not port.service.name in service_search:
+
+                    # ===============
+                    # DO MATCH SEARCH
+                    # ===============
+
+                    if not sreg and \
+                        (not port.service or \
+                        not port.service.name in service_search):
+                            continue
+
+                    # ===============
+                    # DO REGEX SEARCH
+                    # ===============
+
+                    else:
 
                         matched = False
                         for ser in service_search:
-                            if re.search(ser,port.service.name):
+                            if search(ser,port.service.name):
                                 matched=True
                                 break
 
@@ -377,13 +447,9 @@ class Host:
 
         return output
 
-    def to_uris(self,fqdns=False,protocols=['tcp'],open_only=True,
-            scheme_layer='application',mangle_functions=[],
-            port_search=[]):
+    def to_uris(self,*args,**kwargs):
         """Return a list of URIs derived from the sockets associated
         with a given host.
         """
 
-        return self.to_sockets(fqdns=fqdns, protocols=protocols,
-            open_only=open_only, scheme_layer=scheme_layer,
-            mangle_functions=mangle_functions,port_search=port_search)
+        return self.to_sockets(*args,**kwargs)
