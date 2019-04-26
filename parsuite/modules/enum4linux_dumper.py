@@ -9,7 +9,10 @@ import os
 from IPython import embed
 import re
 
-help='Dump hosts and open ports from a masscan xml file.'
+help="""Dump groups and group memberships to disk, using
+the filesystem as as basic database for simple searching
+using grep and other mechanism.
+"""
 
 args = [
     DefaultArguments.input_files,
