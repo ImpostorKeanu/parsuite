@@ -240,8 +240,8 @@ def parse(input_files, output_directory, *args, **kwargs):
             # DUMP USERS BY GROUP
             # ===================
 
-            os.mkdir(f'users_by_group')
-            os.chdir(f'users_by_group')
+            os.mkdir(f'members_by_group')
+            os.chdir(f'members_by_group')
 
             for group in cgroups:
 
