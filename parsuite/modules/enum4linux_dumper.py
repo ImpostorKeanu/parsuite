@@ -20,6 +20,12 @@ args = [
 ]
 
 class Normalized:
+    """Basic class that will normalize a supplied value such that
+    it is suitable to be used as a file or directory name. The
+    `__eq__` method has been overidden to assure that comparison
+    operations occur on the `value` attribute as opposed to
+    identifier.
+    """
 
     def __init__(self,value):
         self.value = value
@@ -27,27 +33,46 @@ class Normalized:
 
     @staticmethod
     def normalize(value):
+        """Normalize a string. Static method so this capability
+        can be accessed by non-Normalized objects.
+        """
+
         normalized = value.replace(' ','_')
         return normalized.lower()
 
     @property
     def normalized(self):
+        """Return the normalized value.
+        """
+
         return self._normalized
 
     @normalized.setter
     def normalized(self,value):
+        """Set the normalized value as an attribute.
+        """
+
         self._normalized = Normalized.normalize(value)
 
     def __eq__(self,value):
+        """Compare the value attribute to the supplied string.
+        """
+
         if self.value == value:
             return True
         else:
             return False
 
     def __repr__(self):
+        """Return a string representation of the object.
+        """
+
         return f'{self.__class__}: {self.normalized}'
 
 class List(list):
+    """List object with a `find` method that allows for simplistic
+    querying of list items based on value.
+    """
 
     def find(self,attr,value):
 
@@ -61,6 +86,10 @@ class MemberList(List):
     pass
 
 class GroupList(List):
+    """A list of group objects. `append` method has been created
+    to facilitate simple creation of groups and addition of users
+    to those groups.
+    """
     
     def append(self,group,group_type,member):
         
@@ -68,14 +97,11 @@ class GroupList(List):
 
         if g and g.__class__ == GroupList: g = group[0]
         else: g = Group(group,group_type)
-        try:
-            g.append_member(member)
-            super().append(g)
-        except:
-            embed()
-            exit()
+        g.append_member(member)
+        super().append(g)
 
 class Group(Normalized):
+
     # Group 'operators' (RID: 548) has member: domain\username
     REG = r"^Group '(?P<group>.+)' \(RID: (?P<group_rid>[0-9]{1,})\) " \
         r"has member: (?P<domain>.+)?\\(?P<username>.+)"
@@ -109,8 +135,12 @@ def parse(input_files, output_directory, *args, **kwargs):
     # PARSE EACH ENUM4LINUX FILE
     # ==========================
 
+    sprint('Parsing files. This may take some time....')
+
     domain = None
     for infile in input_files:
+
+        sprint(f'Parsing: {infile}')
 
         with open(infile) as f:
 
@@ -147,6 +177,8 @@ def parse(input_files, output_directory, *args, **kwargs):
                     groups.append(group=group,
                         group_type=group_type,
                         member=member)
+
+    sprint('Dumping output to disk')
 
     os.chdir(output_directory)
 
@@ -241,30 +273,3 @@ def parse(input_files, output_directory, *args, **kwargs):
             os.chdir('../..')
 
     return 0
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
