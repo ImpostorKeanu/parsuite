@@ -186,7 +186,6 @@ class PortList(list):
             # TODO: Finish negotiation of attribute of attr object
             # for a service, should be `name`
             if value_attr:
-                print(attr.__class__,attr)
                 return PortList([p for p in self if search(
                     value,p.__getattribute__(attr) \
                         .__getattribute__(value_attr)
@@ -292,7 +291,6 @@ class Host:
             matched = False
             for service in service_search:
 
-                print(service.__class__,service)
 
                 # ===================
                 # HANDLE REGEX SEARCH
