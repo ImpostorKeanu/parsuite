@@ -3,6 +3,7 @@ from parsuite.core.suffix_printer import *
 from shutil import rmtree
 from xml.etree.ElementTree import Element
 import types
+from base64 import b64encode
 
 def fingerprint_xml(tree):
     '''Query an etree object to determine the file format. Will return
@@ -27,6 +28,28 @@ def fingerprint_xml(tree):
 
     return fingerprint
 
+def base64(s):
+    """Return a base64 encoded version of the supplied string."""
+
+    return str(b64encode(bytes(s,'utf-8')),'utf-8')
+
+def len_split(s,max_len=75):
+
+    lines = []
+    line = ''
+    counter = 1
+    for char in s:
+        if counter < max_len:
+            counter += 1
+            line += char
+        elif counter == max_len:
+            counter = 1
+            lines.append(line+char)
+            line = ''
+
+    if line: lines.append(line)
+
+    return lines
 
 def validate_module(module):
 
