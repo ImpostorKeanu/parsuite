@@ -165,15 +165,15 @@ def parse(hash_files=None, cracked_delimiter=':', cracked_files=None,
 
     try:
 
-        for hash_file in hash_files:
-    
-            esprint(f'Checking hashes in {hash_file}')
-            with open(hash_file) as hash_file:
-    
-                for line in hash_file:
-    
-                    line = line.strip()
-                    for cracked_hash in cracked:
+        for cracked_hash in cracked:
+
+            for hash_file in hash_files:
+
+                with open(hash_file) as hash_file:
+
+                    for line in hash_file:
+                        line = line.strip()
+
                         if cracked_hash == line or cracked_hash.__eq__(line,True):
                             s = cracked_hash.translate_match(line)
                             print(s)
