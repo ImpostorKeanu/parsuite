@@ -8,7 +8,7 @@ import os
 import re
 from time import sleep
 
-help='.'
+help='Link cracked hashes back with uncracked values.'
 
 args = [
     Argument('--hash-files','-hf',
@@ -26,12 +26,12 @@ args = [
         hash from the cleartext value in a cracked hash. Default: ':'
         """
     ),
-    Argument('--process-count','-pc',
-        default=4,
-        type=int,
-        help="""Count of processes to use
-        """
-    ),
+    # TODO: Finish multiprocessing
+#    Argument('--process-count','-pc',
+#        default=4,
+#        type=int,
+#        help='Count of processes to use'
+#    ),
     MutuallyExclusiveArgumentGroup(
         required=True,
         arguments=[
