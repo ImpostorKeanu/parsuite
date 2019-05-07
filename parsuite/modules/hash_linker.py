@@ -16,6 +16,10 @@ args = [
         nargs='+',
         help='Base file of uncracked hashes'
     ),
+    Argument('--output-file','-of',
+        required=False,
+        help='File to write output.'
+    ),
     Argument('--cracked-delimiter','-cd',
         default=':',
         help="""Delimiter that is used to separate the password
@@ -130,7 +134,7 @@ def monitor_results(ready_all=False):
 
 def parse(hash_files=None, cracked_delimiter=':', cracked_files=None,
         cracked_hashes=None, match_string=None, process_count=4,
-        *args, **kwargs):
+        output_file=None, *args, **kwargs):
 
 
     if hash_files: helpers.validate_input_files(hash_files)
@@ -152,21 +156,36 @@ def parse(hash_files=None, cracked_delimiter=':', cracked_files=None,
         esprint(f'Handling static string search')
         cracked = [CrackedHash(match_string,'STATIC_STRING_SEARCH')]
 
-    pool = Pool(process_count)
+    # TODO: Implement multiprocessing
+    # Currently having an issue with pickling the find_match function
+    #pool = Pool(process_count)
     #global results
 
-    for hash_file in hash_files:
+    if output_file: output_file = open(output_file,'w')
 
-        esprint(f'Checking hashes in {hash_file}')
-        with open(hash_file) as hash_file:
+    try:
 
-            for line in hash_file:
+        for cracked_hash in cracked:
 
-                line = line.strip()
-                for cracked_hash in cracked:
-                    if cracked_hash == line or cracked_hash.__eq__(line,True):
-                        print(cracked_hash.translate_match(line))
+            for hash_file in hash_files:
 
+                with open(hash_file) as hash_file:
+
+                    for line in hash_file:
+                        line = line.strip()
+
+                        if cracked_hash == line or cracked_hash.__eq__(line,True):
+                            s = cracked_hash.translate_match(line)
+                            print(s)
+                            if output_file: output_file.write(s+'\n')
+
+    finally:
+
+        if output_file: output_file.close()
+
+
+# TODO: Additional multiprocessing code belo
+# Finish!
 #                if results.__len__() < process_count:
 #                    results.append(pool.apply_async(find_match,(cracked,line,)))
 #                else:

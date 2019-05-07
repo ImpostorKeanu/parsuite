@@ -25,7 +25,8 @@ args = [
         help='Dump the top sctp services'),
     Argument('--udp',action='store_true',
         help='Dump the top udp services'),
-    Argument('--name-search', required=False,
+    Argument('--name-search',  default=[],
+        nargs='+',
         help='Search all service names and dump matches'),
     Argument('--minimum-frequency', '-mf', default=0.000001,
         type=float,
@@ -64,7 +65,7 @@ def parse_service(line,minimum_frequency=None):
 
 def parse(csv_only=None,
         tcp=None, udp=None, sctp=None, top=None, all_protocols=False,
-        minimum_frequency=None, name_search=None, offset=0,**kwargs):
+        minimum_frequency=None, name_search=[], offset=0,**kwargs):
 
     if offset >= top:
         raise Exception('Offset must be less than top')
@@ -83,51 +84,53 @@ def parse(csv_only=None,
     if sctp: protocols.append('sctp')
     if not protocols or all_protocols: protocols = ['tcp','udp']
 
-    services = {}
   
-    if name_search:
+    services = {}
 
-        services = {}
+    if name_search:
+        
         for proto in protocols: services[proto] = []
 
-        with open(default_services_path) as service_file:
+        for search_val in name_search:
+    
+            with open(default_services_path) as service_file:
+    
+                for line in service_file:
+    
+                    service = parse_service(line)
+                    if not service or not service.protocol in protocols: continue
+    
+                    if re.search(re.escape(search_val),service.name):
+                        services[service.protocol].append(service)
+    
+        for proto in protocols:
 
-            for line in service_file:
-
-                service = parse_service(line)
-                if not service or not service.protocol in protocols: continue
-
-                if re.search(re.escape(name_search),service.name):
-                    services[service.protocol].append(service)
-
-            for proto in protocols:
-
-                srvs = services[proto]
-                if not csv_only:
-
-                    print('{:-<39}'.format(''),file=stderr)
-                    print('{: >24}'.format(proto.upper()+' Services'),file=stderr)
-                    print('{:-<39}'.format(''),file=stderr)
-                    print('{:16}{:15} Service'.format('Freq','Port/Proto'),file=stderr)
-                    print('{: <16}{: <15}{: >8}'.format('----','----------','-------'),file=stderr)
-                
-                    for s in services[proto]:
-                        print(
-                            f'{s.frequency:0<8}\t{str(s.port)+"/"+s.protocol:8}\t{s.name}',
-                            file=stderr
-                        )
-
-                if not csv_only:
-                    print(file=stderr)
-        
+            srvs = services[proto]
             if not csv_only:
-                esprint('CSV List(s):\n')
-            for protocol in protocols:
-                esprint(f'{protocol}:')
-                ports = ','.join(
-                    [str(p.port) for p in sorted(services[protocol])]
-                )
-                print(ports)
+
+                print('{:-<39}'.format(''),file=stderr)
+                print('{: >24}'.format(proto.upper()+' Services'),file=stderr)
+                print('{:-<39}'.format(''),file=stderr)
+                print('{:16}{:15} Service'.format('Freq','Port/Proto'),file=stderr)
+                print('{: <16}{: <15}{: >8}'.format('----','----------','-------'),file=stderr)
+            
+                for s in services[proto]:
+                    print(
+                        f'{s.frequency:0<8}\t{str(s.port)+"/"+s.protocol:8}\t{s.name}',
+                        file=stderr
+                    )
+
+            if not csv_only:
+                print(file=stderr)
+    
+        if not csv_only:
+            esprint('CSV List(s):\n')
+        for protocol in protocols:
+            esprint(f'{protocol}:')
+            ports = ','.join(
+                [str(p.port) for p in sorted(services[protocol])]
+            )
+            print(ports)
 
     else:
 
