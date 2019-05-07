@@ -49,12 +49,12 @@ class Service:
     ATTRIBUTES = ['name','conf','method','version','product',
         'tunnel','proto','rpcnum','hostname','ostype','deviceytpe']
 
-    def __init__(self,name,confs=None,method=None,version=None,
+    def __init__(self,name,conf=None,method=None,version=None,
         product=None,tunnel=None,proto=None,rpcnum=None,hostname=None,
         ostype=None,devicetype=None):
 
         self.name = name
-        self.confs = confs
+        self.conf = conf
         self.method = method
         self.version = version
         self.product = product
