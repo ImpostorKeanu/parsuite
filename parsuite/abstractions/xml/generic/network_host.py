@@ -1,8 +1,25 @@
 #!/usr/bin/env python3
 
 from re import search
-from sys import exit
 from IPython import embed
+from sys import exit
+
+def validate_port(func):
+    '''Decorator used to enforce type on port objects.
+    '''
+
+    def validate(self,port,*args,**kwargs):
+
+        if port.__class__ == Port or Port in port.__class__.__bases__:
+            return func(self,port,*args,**kwargs)
+        else:
+            raise TypeError(
+                'PortList values must inherit from Port'
+            )
+
+    return validate
+
+vp = validate_port
 
 class Script:
     '''A basic representation of an Nmap script.
@@ -85,7 +102,7 @@ class Port:
         'port_id']
 
     def __init__(self,number,state,protocol,service=None,scripts=[],
-            reason=None):
+            reason=None, *args, **kwargs):
 
         self.number = number
         self.state = state
@@ -95,11 +112,17 @@ class Port:
         self.scripts = scripts
         self.portid = self.number
 
+    def __repr__(self,cls='Port'):
+
+        return f'< [{cls}] Number: {self.number} ' \
+            f'Protocol: \'{self.protocol}\' >'
+
 class PortDict(dict):
-    '''A dictionary of protocol to PortList mappings
+    '''A dictionary of port number to port list mappings that
+    enforces a particular type of protocol.
     '''
 
-    VALID_PROTOCOLS = ['tcp','udp','sctp','ip']
+    VALID_PROTOCOLS = ['tcp','udp','sctp','ip','icmp']
 
     def __init__(self,protocol):
         '''Initialize a PortDict object. Protocol determines the
@@ -117,58 +140,51 @@ class PortDict(dict):
     def __setitem__(self,key,value):
         '''Override __setitem__ to assure the key is an integervalue.
         '''
-
-        if value.__class__ != Port:
+        # assure that the port is of type Port
+        if not Port in value.__class__.__mro__:
             raise TypeError(
-                f'PortDict objects hold only Port objects, not {value.__class__}'
+                'value argument must be of type Port'
+            )
+
+        # assure that the protocol associated with the port
+        # matches the one of the dictionary
+        if value.protocol != self.protocol:
+            raise ValueError(
+                'value protocol must match the PortDict protocol'
             )
         
         key = int(key)
         super().__setitem__(key,value)
 
+    @vp
     def append_port(self,port):
-        
-        if port.__class__ != Port:
-            raise TypeError(
-                f'PortDict objects hold only Port objects, not {value.__class__}'
-            )
 
-        self.__setitem__(port.number,port)  
+        self.__setitem__(port.number,port)
 
+    def get(self,attr,value,regexp=False,value_attr=None):
+
+        return PortList(self.values()).get(
+            attr,value,regexp=regexp,value_attr=value_attr
+        )
 
 class PortList(list):
     '''A superclass of list that performs type enforcement on objects
     as they're added while also providing a basic querying interface.
     '''
 
+    @vp
     def __setitem__(self,key,value,*args,**kwargs):
         '''Override __setitem__ to enforce type.
         '''
 
-        if value.__class__ != Port:
-            raise TypeError(
-                'PortList values must be of type Port'
-            )
-
         super().__setitem__(key,value,*args,**kwargs)
 
+    @vp
     def append(self,value,*args,**kwargs):
         '''Override append enforce type.
         '''
 
-        if value.__class__ != Port:
-            raise TypeError(
-                'PortList values must be of type Port'
-            )
-
-        # Handle duplicate ports by removing the original and appending
-        # the new one.
-        known_port = self.get('protocol',value.protocol) \
-            .get('number',value.number)
-        if known_port: self.remove(known_port[0])
-
-        # Append the port
-        super().append(value,*args,**kwargs)
+        super().append(value)
 
     def get(self,attr,value,regexp=False,value_attr=None):
         '''Get ports from the list where the attribute value matches that of
@@ -207,7 +223,7 @@ class Host:
 
         # Assure ports are provided in as PortLists
         for k,v in {k:v for k,v in locals().items()
-                if k.endswith('ports')}.items():
+                if k != 'ports' and k.endswith('ports')}.items():
             if v and v.__class__ != PortDict:
                 raise TypeError('Port arguments must be of type PortDict')
 
@@ -252,15 +268,11 @@ class Host:
             if not value and attr.endswith('_ports'):
                 self.__setattr__(attr,PortDict(protocol=attr.split('_')[0]))
 
+    @vp
     def append_port(self,port):
         '''Pass a port to the Host and allow it to add it to the
         appropriate PortList according to the protocol.
         '''
-
-        if port.__class__ != Port:
-            raise TypeError(
-                'port must be of type Port'
-            )
 
         self.__getattribute__(port.protocol+'_ports').append_port(port)
         self.ports.append(port)
@@ -268,9 +280,9 @@ class Host:
     def get_addresses(self,fqdns=False, port_search=[], service_search=[],
             sreg=False, port_required=False, *args, **kwargs):
 
-        # =============================
-        # REQUIRE AT LEAST AN OPEN PORT
-        # =============================
+        # ====================
+        # REQUIRE AN OPEN PORT
+        # ====================
 
         if port_required and not self.ports.get('state','open'):
             return []
@@ -319,10 +331,9 @@ class Host:
         # EXTRACT HOSTNAMES WHEN REQUESTED
         # ================================
 
+        addresses = []
         if fqdns:
-            addresses = self.hostnames
-        else:
-            addresses = []
+            addresses += self.hostnames
 
         # ================
         # GET IP ADDRESSES
@@ -331,7 +342,7 @@ class Host:
 
         if self.ipv4_address:
             addresses.append(self.ipv4_address)
-        elif self.ipv4_address:
+        elif self.ipv6_address:
             addresses.append(self.ipv6_address)
 
         # Assure host has at least one address
@@ -340,7 +351,7 @@ class Host:
                 'Host has no address'
             )
 
-        return addresses
+        return sorted(addresses)
 
     def to_addresses(self,*args,**kwargs):
         return self.get_addresses(*args,**kwargs)
@@ -443,7 +454,7 @@ class Host:
                         addr = func(addr)
                     output.append(addr)
 
-        return output
+        return sorted(output)
 
     def to_uris(self,*args,**kwargs):
         """Return a list of URIs derived from the sockets associated

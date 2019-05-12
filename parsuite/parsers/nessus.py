@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from parsuite.abstractions.xml.nessus import *
+from parsuite.abstractions.xml.validators import validate_lxml_tree
 from xml.etree.ElementTree import ElementTree
 from re import match,search
 
@@ -45,7 +46,7 @@ def parse_nessus(tree,no_services):
             if val != None and val.text not in hostnames:
                 hostnames.append(val.text)
 
-        host = NessusHost(ipv4_address=ipv4_address,
+        host = Host(ipv4_address=ipv4_address,
             ipv6_address=ipv6_address,
             status=status,
             status_reason=status_reason,
@@ -63,10 +64,13 @@ def parse_nessus(tree,no_services):
 
             if port == 0: continue
             
-            service = Service(name=service)
+            service = NH.Service(name=service)
+
             host.append_port(
-                Port(number=port,protocol=protocol,
-                    state=state,reason=reason,service=service)
+                Port(
+                    number=port,protocol=protocol,
+                    state=state,reason=reason,service=service
+                )
             )
 
         if host.ipv4_address:
@@ -77,3 +81,25 @@ def parse_nessus(tree,no_services):
             report[host.mac_address] = host
 
     return report
+
+def parse_report_item(ele_report_item):
+    '''ele_report_item is a ReportItem element
+    '''
+    
+    ri = ele_report_item
+    service = ri.get('svc_name')
+    protocol = ri.get('protocol')
+    plugin_name = ri.get('pluginName')
+    plugin_family = ri.get('pluginFamily')
+    port = int(ri.get('port'))
+    state = 'open'
+    reason = 'nessus-open'
+
+    if port == 0: pass
+    
+    service = Service(name=service)
+    port = Port(number=port,
+        protoco=protocol,
+        state=state,
+        reason=reason,
+        service=service)
