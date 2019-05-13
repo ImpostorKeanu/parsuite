@@ -3,7 +3,6 @@
 from parsuite.abstractions.xml.masscan import *
 from xml.etree.ElementTree import ElementTree
 from re import match,search
-from IPython import embed
 from sys import exit
 
 def parse_masscan(tree,no_services):

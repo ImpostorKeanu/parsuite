@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from parsuite.abstractions.xml.nmap import *
 from xml.etree.ElementTree import ElementTree
-from IPython import embed
 from sys import exit
 
 def parse_nmap(tree,require_open_ports):

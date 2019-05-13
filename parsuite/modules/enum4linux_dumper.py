@@ -6,7 +6,6 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 import argparse
 import os
-from IPython import embed
 import re
 
 help="""Dump groups and group memberships to disk, using

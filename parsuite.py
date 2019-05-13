@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-from IPython import embed
-
 import argparse
 import os
 from pathlib import Path

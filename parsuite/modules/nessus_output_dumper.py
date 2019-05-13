@@ -4,13 +4,11 @@ from parsuite.abstractions.xml.validators import validate_lxml_tree
 from parsuite import helpers
 from parsuite.core.suffix_printer import *
 from pathlib import Path
-from IPython import embed
 from lxml import etree as ET
 import argparse
 import os
 import re
 from sys import exit
-from IPython import embed
 from sys import exit
 
 

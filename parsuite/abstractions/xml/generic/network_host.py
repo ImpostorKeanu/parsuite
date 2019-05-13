@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 from re import search
-from IPython import embed
 from sys import exit
 
 def validate_port(func):
