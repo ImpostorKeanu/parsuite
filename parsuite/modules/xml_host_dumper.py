@@ -28,7 +28,7 @@ args = [
     Argument(
         '--format','-f',
         required=True,
-        choices=['sockets','addresses','uris','address-ports'],
+        choices=['sockets','addresses','uris','address-ports','ports'],
         help='''Output format. Default: %(default)s'''),
     Argument(
         '--transport-layer','-tl',
