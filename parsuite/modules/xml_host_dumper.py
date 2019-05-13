@@ -9,7 +9,11 @@ import xml.etree.ElementTree as ET
 import argparse
 import os
 
-help='Dump hosts and open ports from a masscan xml file.'
+help='''Dump hosts and open ports from multiple masscan, nmap,
+or nessus files. A generalized abstraction layer is used to
+produce objects that align with the Nmap XML structure since
+it has the most comprehensive XSD file.
+'''
 
 args = [
     DefaultArguments.input_files,
