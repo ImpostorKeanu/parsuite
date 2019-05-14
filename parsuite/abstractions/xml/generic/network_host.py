@@ -276,6 +276,12 @@ class Host:
         self.__getattribute__(port.protocol+'_ports').append_port(port)
         self.ports.append(port)
 
+    def get_ports(self, *args, **kwargs):
+        return [port.number for port in self.ports]
+
+    def to_ports(self, *args, **kwargs):
+        return self.get_ports()
+
     def get_addresses(self,fqdns=False, port_search=[], service_search=[],
             sreg=False, port_required=False, *args, **kwargs):
 

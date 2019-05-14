@@ -91,49 +91,6 @@ args = [
         file formats support all protocols. Default: %(default)s''')
 ]
 
-class Report(dict):
-    
-    def aggregate(self,report):
-        '''Aggregate another report with this report. Note that
-        ports and other objects associated with a given host
-        will be overwritten with the most current one provided
-        in given report.
-        '''
-
-        rclass = report.__class__
-        if rclass != Report and rclass != Report:
-            raise TypeError(
-                'report argument must be a dict or report'
-            )
-
-        for address,host in report:
-            if address not in self:
-                self[address] = host
-            else:
-                for port in host.portlist:
-                    self[address].append_port(port)
-
-    def query_addresses(self,port_required=True,port_search=[],
-            service_search=None,protocols=['tcp'],*args,**kwargs):
-        '''Extract addresses from the report.
-        '''
-       
-        #TODO: Pick up here!
-        output = []
-
-    def query_sockets(self,port_required=True,port_search=[],
-            service_search=None,protocols=['tcp'],*args,**kwargs):
-        '''Extract addresses from the report.
-        '''
-        pass
-
-    def query_uris(self,port_required=True,port_search=[],
-            service_search=None,protocols=['tcp'],mangle_http=False,
-            *args,**kwargs):
-        '''Extract addresses from the report.
-        '''
-        pass
-
 def parse(input_files, format, all_addresses, fqdns, 
         port_required, port_search, service_search,
         mangle_http, protocols, transport_layer,
@@ -170,6 +127,7 @@ def parse(input_files, format, all_addresses, fqdns,
     # DUMP THE RESULTS TO STDOUT
     # ==========================
 
+    # Build the appropriate output
     output = []
     for address,host in final_report.items():
         output += host.__getattribute__('to_'+format)(
@@ -181,6 +139,11 @@ def parse(input_files, format, all_addresses, fqdns,
             service_search=service_search,
             sreg=sreg,
         )
-    print(delimiter.join(output))
+    
+    # Format and dump the output
+    if format == 'ports':
+        print(delimiter.join(list(set(output))))
+    else:
+        print(delimiter.join(output))
 
     return 0
