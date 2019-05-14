@@ -17,18 +17,16 @@ it has the most comprehensive XSD file.
 
 args = [
     DefaultArguments.input_files,
-    # TODO
     Argument('--delimiter','-d',
         default='\n',
         type=str,
         help='''String delimiter used for each line of output.
         Default: newline (\\n)
         '''),
-    # TODO
     Argument(
         '--format','-f',
-        required=True,
-        choices=['sockets','addresses','uris','address-ports','ports'],
+        default='address',
+        choices=['socket','address','uri','port'],
         help='''Output format. Default: %(default)s'''),
     Argument(
         '--transport-layer','-tl',
@@ -36,25 +34,21 @@ args = [
         help='''When printing URIs, use the application layer for
         the scheme component, e.g. tcp instead of http'''
     ),
-    # TODO
     Argument(
         '--all-addresses',
         action='store_true',
         help='''Return IPs and FQDNs. Default: %(default)s'''),
-    # TODO
     Argument(
         '--fqdns',
         action='store_true',
         help='''Return FQDNs instead of ip addresses. Default: 
         %(default)s'''),
-    # TODO
     Argument(
         '--port-required',
         action='store_true',
         help='''Return hosts only when they have at least one port open.
         Default: %(default)s
         '''),
-    # TODO
     Argument(
         '--port-search',
         nargs='+',
@@ -68,20 +62,17 @@ args = [
         action='store_true',
         help='''Treat service searches as individual regexes.'''
     ),
-    # TODO
     Argument(
         '--service-search',
         nargs='+',
         help='''Search services for a string. Default: %(default)s
         '''),
-    # TODO
     Argument(
         '--mangle-http',
         action='store_true',
         help='''Mangle HTTP services into an HTTP/HTTPS link.
         Default: %(default)s
         '''),
-    # TODO
     Argument(
         '--protocols',
         nargs='+',
@@ -91,10 +82,15 @@ args = [
         file formats support all protocols. Default: %(default)s''')
 ]
 
+PLURAL_MAP = {'address':'addresses','socket':'sockets','uri':'uris',
+        'port':'ports'}
+
 def parse(input_files, format, all_addresses, fqdns, 
         port_required, port_search, service_search,
         mangle_http, protocols, transport_layer,
         delimiter, sreg, *args, **kwargs):
+
+    format = PLURAL_MAP[format]
 
     # ==========================
     # NEGOTIATE THE SCHEME LAYER
