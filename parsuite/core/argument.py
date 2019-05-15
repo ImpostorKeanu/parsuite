@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from sys import stdout
+
 class Argument:
     '''Generic argument object which will pass args and kwargs to
     argparse.parser.add_argument.
@@ -14,9 +16,17 @@ class DefaultArguments:
     '''Default arguments that can be referenced by modules. Convenience
     is convenient; allows for input validation.
     '''
+
+    # ==========================
+    # REQUIRED DEFAULT ARGUMENTS
+    # ==========================
     
     input_file = Argument('--input-file','-if',
         required=True,
+        help='Input file to parse.')
+    
+    input_file_optional = Argument('--input-file','-if',
+        required=False,
         help='Input file to parse.')
     
     input_files = Argument('--input-files','-ifs',
@@ -24,6 +34,23 @@ class DefaultArguments:
         help='Input files to parse.',
         nargs='+')
 
+    # ==========================
+    # OPTIONAL DEFAULT ARGUMENTS
+    # ==========================
+
+    output_file_stdout_default = Argument('--output-file','-of',
+        default=stdout,
+        help='Output file to dump. Default: %(default)s')
+    
+    input_file_optional = Argument('--input-file','-if',
+        default='',
+        help='Input file to parse.')
+    
+    input_files_optional = Argument('--input-files','-ifs',
+        default=[],
+        help='Input files to parse.',
+        nargs='+')
+    
 class ArgumentGroup(Argument,list):
     '''A list of arguments that will be added to an argument group.
     '''
