@@ -43,8 +43,8 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False
     tree = ET.parse(input_file)
 
     # Dump target ip addresses
-    sprint('Dumping target information')
-    with open('target_information.txt','w') as of:
+    sprint('Dumping target information (target addresses)')
+    with open('target_ips.txt','w') as of:
 
         # dump all target s to disk    
         for pref in tree.findall('.//preference'):
@@ -56,6 +56,25 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False
                 value = pref.find('./value')
                 of.write('\n'.join(value.text.split(',')))
                 break
+
+    # Dump additional hostnames to disk
+    for a in ['netbios-name', 'host-fqdn', 'host-rdns']:
+
+        if a[-1] != 's': fname = a+'s'
+        else: fname = a
+        fname += '.txt'
+        sprint(f'Dumping {a} values to {fname}')
+
+        values = {}
+        if tree.xpath(f'//tag[@name="{a}"]'):
+
+            with open(fname,'w') as outfile:
+
+                values = []
+                for ele in tree.xpath(f'//tag[@name="{a}"]'):
+                    if not ele.text in values:
+                        values.append(ele.text)
+                        outfile.write(ele.text+'\n')
 
     # Dump open ports
     sprint('Dumping open ports')
@@ -91,7 +110,7 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False
                 protocols.append(ri.protocol)
 
             if alert:
-                print(f'{ri.plugin_name}')
+                print(f'- {ri.plugin_name}')
                 alert = False
 
             parent = eri.getparent()
