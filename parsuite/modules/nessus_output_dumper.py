@@ -1,6 +1,5 @@
 from parsuite.core.argument import Argument,DefaultArguments
 from parsuite.abstractions.xml.nessus import *
-from parsuite.abstractions.xml.validators import validate_lxml_tree
 from parsuite import helpers
 from parsuite.core.suffix_printer import *
 from pathlib import Path

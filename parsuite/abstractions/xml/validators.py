@@ -1,18 +1,26 @@
-from parsuite.abstractions.xml import nessus
 import lxml
 
-def validate_lxml_tree(func):
-
-    def validate(tree,*args,**kwargs):
+def validate_lxml_tree(tree,*args,**kwargs):
+    '''Assure that the tree object is an lxml tree.
+    '''
         
-        if lxml.etree._ElementTree not in tree.__class__.__mro__:
+    if lxml.etree._ElementTree not in tree.__class__.__mro__:
 
-            raise TypeError(
-                'argument must be of type tree'
-            )
+        return False
 
-        else:
+    else:
 
-            return func(tree,*args,**kwargs)
+        return True
 
-    return validate
+def validate_lxml_module(obj,*args,**kwargs):
+    '''Assure that the object is produced by the lxml module
+     to prevent any issues when performing XPATH queries.
+     '''
+
+    if obj.__class__.__module__ != 'lxml.etree':
+
+        return False
+
+    else:
+
+        return True

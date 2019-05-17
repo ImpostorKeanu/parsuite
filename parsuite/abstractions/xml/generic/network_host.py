@@ -2,6 +2,9 @@
 
 from re import search
 from sys import exit
+from parsuite import decorators
+
+ve = decorators.validate_lxml_module
 
 def validate_port(func):
     '''Decorator used to enforce type on port objects.
@@ -63,7 +66,7 @@ class Service:
     '''
 
     ATTRIBUTES = ['name','conf','method','version','product',
-        'tunnel','proto','rpcnum','hostname','ostype','deviceytpe']
+        'tunnel','proto','rpcnum','hostname','ostype','devicetype']
 
     def __init__(self,name,conf=None,method=None,version=None,
         product=None,tunnel=None,proto=None,rpcnum=None,hostname=None,
@@ -102,6 +105,16 @@ class Port:
 
     def __init__(self,number,state,protocol,service=None,scripts=[],
             reason=None, *args, **kwargs):
+
+        if number.__class__ != int:
+            try:
+                number = int(number)
+            except:
+                raise TypeError(
+                    '''Port number must be a string value that can be 
+                    converted to an integer when an int object is not
+                    provided.'''
+                )
 
         self.number = number
         self.state = state
@@ -211,6 +224,8 @@ class PortList(list):
                     search(value,p.__getattribute__(attr))]
                 )
 
+
+
 class Host:
     '''Produces objects that resemble an Nmap host.
     '''
@@ -284,6 +299,8 @@ class Host:
 
     def get_addresses(self,fqdns=False, port_search=[], service_search=[],
             sreg=False, port_required=False, *args, **kwargs):
+
+        port_search = [int(p) for p in port_search]
 
         # ====================
         # REQUIRE AN OPEN PORT
@@ -467,3 +484,67 @@ class Host:
         """
 
         return self.to_sockets(*args,**kwargs)
+
+class FromXML:
+
+    @staticmethod
+    @ve
+    def host(ehost):
+        
+        status = ehost.find('status').get('state')
+        status_reason = ehost.find('status').get('reason')
+        
+        # Getting addresses
+        addresses = {}
+        for eaddress in ehost.findall('.//address'):
+            addr_type = eaddress.get('addrtype')
+            addresses[addr_type+'_address'] = eaddress.get('addr')
+        
+        # Getting ehostnames
+        hostnames = [
+            hn.attrib['name'] for hn in ehost.findall('.//hostname')
+        ]
+        
+        # Create a ehost object
+        return Host(**addresses,
+            hostnames=hostnames,
+            status=status,
+            status_reason=status_reason)
+
+    @staticmethod
+    @ve
+    def port(eport):
+        
+        # Get port information
+        portid = eport.get('portid')
+        protocol = eport.get('protocol')
+
+        # Handle state element
+        estate = eport.find('.//state')
+        state = estate.get('state')
+        reason = estate.get('reason')
+
+        # Handle the service element
+        service = eport.find('./service')
+        if service != None:
+            service = FromXML.service(service)
+
+        # Build and return the port
+        return Port(number=portid,
+            state=state,
+            reason=reason,
+            protocol=protocol,
+            service=service)
+
+    @staticmethod
+    @ve
+    def service(eservice):
+        es = eservice
+
+        # Use the attribute list to build the arguments for Service
+        attrs = {}
+        for attr in Service.ATTRIBUTES:
+            attrs[attr] = es.get(attr)
+
+        # Return a new service object
+        return Service(**attrs)

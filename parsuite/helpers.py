@@ -2,8 +2,10 @@ from pathlib import Path
 from parsuite.core.suffix_printer import *
 from shutil import rmtree
 from xml.etree.ElementTree import Element
+from parsuite.abstractions.xml import validators
 import types
 from base64 import b64encode
+
 
 def fingerprint_xml(tree):
     '''Query an etree object to determine the file format. Will return
@@ -15,15 +17,26 @@ def fingerprint_xml(tree):
     - masscan
     '''
 
-    ele = tree.find('[@scanner]')
-
     fingerprint = None
-    if ele:
-        if ele.attrib['scanner'] == 'masscan':
-            fingerprint =  'masscan'
-        elif ele.attrib['scanner'] == 'nmap':
-            fingerprint =  'nmap'
-    elif tree.find('.//policyName').__class__ == Element:
+
+    # Things are goofy here because I was too lazy to start
+    # developing with lxml until later on. Now we have to compensate
+    # for the type of queries that can be performed.
+
+    if validators.validate_lxml_tree(tree):
+        ele = tree.xpath('@scanner')
+    else:
+        ele = tree.find('[@scanner]')
+
+    if hasattr(ele,'attr'):
+        fingerprint = ele.attr['scanner']
+    elif ele != None and ele != []:
+        fingerprint = ele[0]
+
+    if not fingerprint in ['masscan','nmap'] and (
+            tree.find('.//policyName').__class__ is not None
+        ):
+
         fingerprint =  'nessus'
 
     return fingerprint
