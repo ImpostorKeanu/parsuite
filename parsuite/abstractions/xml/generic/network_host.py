@@ -230,6 +230,14 @@ class Host:
     '''Produces objects that resemble an Nmap host.
     '''
 
+    def __eq__(self, value):
+
+        if id(self) == id(value) or value in self.ip_addresses or (
+            value in self.hostnames):
+            return True
+        else:
+            return False
+
     def __init__(self,tcp_ports=None,udp_ports=None,ip_ports=None,
             sctp_ports=None,ipv4_address=None,ipv6_address=None,
             hostnames=[],status=None,status_reason=None,
@@ -251,6 +259,16 @@ class Host:
         self.sctp_ports = sctp_ports
         self.ipv6_address = ipv6_address
         self.ipv4_address = ipv4_address
+
+        # List of IP addresses for quick reference should a given host
+        # have both an IPv4 and IPV6 address
+        ips = []
+        if self.ipv4_address:
+            ips.append(self.ipv4_address)
+        if self.ipv6_address:
+            ips.append(self.ipv6_address)
+        self.ip_addresses = ips
+            
 
         # Each hostname is in a hostname element, a child of the 
         # hostnames element for a host
