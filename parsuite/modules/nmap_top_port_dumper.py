@@ -76,8 +76,9 @@ def parse(csv_only=None,
         if offset: srvs = srvs[offset:offset+top]
         else: srvs = srvs[:top]
 
+        srvs = sorted(srvs,reverse=True)
         csv_cache[proto] = ','.join(
-            [str(p.port) for p in sorted(srvs)]
+            [str(p.port) for p in srvs]
         )
 
         if not csv_only:
