@@ -239,6 +239,8 @@ class ReportItem:
 
             self.__setattr__(attr,val)
 
+        self.exploitable = self.exploit_available
+
         # Determine if the report item is dealing with SSL/TLS
         for k in ['ssl','tls']:
 

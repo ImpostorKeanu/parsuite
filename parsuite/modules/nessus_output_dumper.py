@@ -91,6 +91,13 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False
 
     # Dump plugin outputs
     sprint('Dumping plugin outputs\n')
+    finding_index = {
+        'NONE':[],
+        'LOW':[],
+        'MEDIUM':[],
+        'HIGH':[],
+        'CRITICAL':[]
+    }
     for plugin_id in list(set(tree.xpath('//@pluginID'))):
 
         rhosts = {}
@@ -102,7 +109,6 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False
         # ==========================================================
 
         for eri in tree.xpath(f'//ReportItem[@pluginID="{plugin_id}"]'):
-
             ri = FromXML.report_item(eri)
 
             if not ri.protocol in protocols:
@@ -135,6 +141,17 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False
                 ri.port.plugin_outputs.append_output(
                     plugin_id, ri.plugin_output
                 )
+
+        # Handle finding index item
+        sev = ri.risk_factor.upper()
+        prefix = f'[{sev}] '
+        suffix = ' '
+        if ri.exploit_available:
+            suffix += '[EXPLOITABLE]'
+        if ri.exploit_frameworks:
+            fws = ','.join([fw.upper() for fw in ri.exploit_frameworks])
+            suffix += f'[EXPLOIT FRAMEWORKS: {fws}]'
+        finding_index[sev].append(prefix+ri.plugin_name+suffix)
         
         # ================================
         # BUILD REPORT ITEM DIRECTORY NAME
@@ -259,9 +276,17 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False
 
                 with open(fname,'w') as outfile:
 
-                    outfile.write('\n'.join(lst)+'\n')
+                    outfile.write(''.join(lst)+'\n')
 
         os.chdir('../../')
+
+    sprint('Writing report item index to')
+    with open('report_item_index.txt','w') as outfile:
+
+        for k in ['CRITICAL','HIGH','MEDIUM','LOW','NONE']:
+
+            if finding_index[k]:
+                outfile.write('\n'.join(finding_index[k]))
 
     print()
     return 0
