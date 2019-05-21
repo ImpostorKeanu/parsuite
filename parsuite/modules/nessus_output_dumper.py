@@ -22,14 +22,24 @@ args = [
         action='store_true',
         help='''Dump plugin output to disk. This has potential to
         consume vast amounts of disk space. Tread lightly.
+        '''),
+    Argument('--disable-color-output', '-dc',
+        action='store_true',
+        help='''Disable color output.
         ''')
 ]
 
 # plugin_name_re = pname_re = re.compile('(\-|\s|\\|\<|\>|\=|\(|\)|/|\'|\"|\.)+')
 plugin_name_re = pname_re = re.compile('(\s|\W)+')
 
-def parse(input_file=None, output_directory=None, plugin_outputs=False
-        *args,**kwargs):
+def parse(input_file=None, output_directory=None, plugin_outputs=False,
+        disable_color_output=None, *args,**kwargs):
+
+    if disable_color_output:
+        color = False
+    else:
+        from termcolor import colored
+        color = True
    
     # build output directory
     bo = base_output_path = helpers.handle_output_directory(
@@ -45,7 +55,7 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False
     os.chdir('additional_info')
 
     # Dump target ip addresses
-    sprint('Dumping target information (target addresses)')
+    sprint('Dumping target information (all scanned addresses)')
     with open('target_ips.txt','w') as of:
 
         # dump all target s to disk    
@@ -108,7 +118,7 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False
     # =====================================
 
     # Dump plugin outputs
-    sprint('Dumping plugin outputs\n')
+    sprint('Dumping report items\n')
     finding_index = {
         'NONE':[],
         'LOW':[],
@@ -116,6 +126,7 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False
         'HIGH':[],
         'CRITICAL':[]
     }
+
     for plugin_id in list(set(tree.xpath('//@pluginID'))):
 
         rhosts = {}
@@ -132,9 +143,41 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False
             if not ri.protocol in protocols:
                 protocols.append(ri.protocol)
 
+            color_lookup = {
+                    'none':'blue',
+                    'low':'green',
+                    'medium':'yellow',
+                    'high':'red',
+                    'critical':'magenta'
+            }
+
+
             if alert:
-                print(f'- {ri.plugin_name}')
                 alert = False
+
+                if color:
+                    rf = '['+colored(ri.risk_factor.upper(),
+                            color_lookup[ri.risk_factor])+']'
+        
+                    if ri.risk_factor.__len__() < 9:
+                        rf += ' ' * (9-ri.risk_factor.__len__())
+    
+                    rf += ri.plugin_name
+    
+                    if ri.exploitable:
+                        rf += ' ['+colored('EXPLOITABLE','red',attrs=['blink','bold'])+']'
+                else:
+
+                    rf = '['+ri.risk_factor.upper()+']'
+        
+                    if ri.risk_factor.__len__() < 9:
+                        rf += ' ' * (9-ri.risk_factor.__len__())
+    
+                    rf += ri.plugin_name
+    
+                    if ri.exploitable: rf += ' [EXPLOITABLE]'
+
+                print(rf)
 
             parent = eri.getparent()
             name = parent.get('name')
