@@ -41,6 +41,9 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False
     sprint('Loading Nessus file')
     tree = ET.parse(input_file)
 
+    os.mkdir('additional_info')
+    os.chdir('additional_info')
+
     # Dump target ip addresses
     sprint('Dumping target information (target addresses)')
     with open('target_ips.txt','w') as of:
@@ -56,6 +59,7 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False
                 of.write('\n'.join(value.text.split(',')))
                 break
 
+    # Dump responsive ips
     sprint('Dumping responsive ip addresses')
     with open('responsive_ips.txt','w') as of:
 
@@ -96,6 +100,8 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False
         ]
 
         of.write('\n'.join(ports))
+
+    os.chdir('..')
 
     # =====================================
     # BEGIN DUMPING THE REPORT BY PLUGIN ID
@@ -291,6 +297,8 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False
                     outfile.write(''.join(lst)+'\n')
 
         os.chdir('../../')
+
+    os.chdir('additional_info')
 
     sprint('Writing report item index to')
     with open('report_item_index.txt','w') as outfile:
