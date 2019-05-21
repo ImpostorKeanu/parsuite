@@ -56,6 +56,18 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False
                 of.write('\n'.join(value.text.split(',')))
                 break
 
+    sprint('Dumping responsive ip addresses')
+    with open('responsive_ips.txt','w') as of:
+
+        cache = []
+
+        for tag in tree.xpath('//tag[@name="host-ip"]'):
+            ip = tag.text
+            if ip not in cache:
+                cache.append(ip)
+
+        of.write('\n'.join(sorted(cache)))
+
     # Dump additional hostnames to disk
     for a in ['netbios-name', 'host-fqdn', 'host-rdns']:
 
@@ -67,7 +79,7 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False
         values = {}
         if tree.xpath(f'//tag[@name="{a}"]'):
 
-            with open(fname,'w') as outfile:
+            with open(fname.replace('-','_'),'w') as outfile:
 
                 values = []
                 for ele in tree.xpath(f'//tag[@name="{a}"]'):
