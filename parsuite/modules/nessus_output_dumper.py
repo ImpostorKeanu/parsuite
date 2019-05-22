@@ -337,7 +337,7 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
 
                 with open(fname,'w') as outfile:
 
-                    outfile.write(''.join(lst)+'\n')
+                    outfile.write('\n'.join(lst)+'\n')
 
         os.chdir('../../')
 
@@ -349,7 +349,7 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
         for k in ['CRITICAL','HIGH','MEDIUM','LOW','NONE']:
 
             if finding_index[k]:
-                outfile.write('\n'.join(finding_index[k]))
+                outfile.write('\n'.join(finding_index[k])+'\n')
 
     print()
     return 0
