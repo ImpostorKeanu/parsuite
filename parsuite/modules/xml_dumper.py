@@ -113,6 +113,7 @@ def parse(input_files, format, all_addresses, fqdns,
         
         tree = ET.parse(input_file)
         fingerprint = helpers.fingerprint_xml(tree)
+        print(fingerprint)
         for address,host in globals()['parse_'+fingerprint](tree,port_required) \
             .items():
             if not address in final_report:
@@ -124,6 +125,7 @@ def parse(input_files, format, all_addresses, fqdns,
     # ==========================
     # DUMP THE RESULTS TO STDOUT
     # ==========================
+
 
     # Build the appropriate output
     output = []
@@ -137,6 +139,7 @@ def parse(input_files, format, all_addresses, fqdns,
             service_search=service_search,
             sreg=sreg,
         )
+
     
     # Format and dump the output
     if format == 'ports':

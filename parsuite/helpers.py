@@ -28,13 +28,13 @@ def fingerprint_xml(tree):
     else:
         ele = tree.find('[@scanner]')
 
-    if hasattr(ele,'attr'):
-        fingerprint = ele.attr['scanner']
+    if hasattr(ele,'attrib'):
+        fingerprint = ele.attrib['scanner']
     elif ele != None and ele != []:
         fingerprint = ele[0]
 
     if not fingerprint in ['masscan','nmap'] and (
-            tree.find('.//policyName').__class__ is not None
+            tree.findall('.//policyName').__class__
         ):
 
         fingerprint =  'nessus'
