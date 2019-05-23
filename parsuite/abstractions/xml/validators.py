@@ -1,10 +1,10 @@
-import lxml
+from lxml import etree as etree
 
 def validate_lxml_tree(tree,*args,**kwargs):
     '''Assure that the tree object is an lxml tree.
     '''
         
-    if lxml.etree._ElementTree not in tree.__class__.__mro__:
+    if etree._ElementTree not in tree.__class__.__mro__:
 
         return False
 
