@@ -106,6 +106,8 @@ def parse(input_files, format, all_addresses, fqdns,
     # PARSE EACH INPUT FILE INTO A REPORT DICTIONARY
     # ==============================================
 
+    # host objects organized by address
+      # {address:Host}
     final_report = {}
     for input_file in input_files:
         
@@ -123,6 +125,7 @@ def parse(input_files, format, all_addresses, fqdns,
     # DUMP THE RESULTS TO STDOUT
     # ==========================
 
+
     # Build the appropriate output
     output = []
     for address,host in final_report.items():
@@ -138,7 +141,7 @@ def parse(input_files, format, all_addresses, fqdns,
     
     # Format and dump the output
     if format == 'ports':
-        print(delimiter.join(list(set(output))))
+        print(delimiter.join(list(set([str(p) for p in output]))))
     else:
         print(delimiter.join(output))
 

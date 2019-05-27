@@ -1,5 +1,6 @@
 from parsuite.abstractions.xml.generic import network_host as NH
 from parsuite.abstractions.xml.generic.network_host import Host, PortDict, PortList
+from parsuite import decorators
 import re
 
 plugin_name_re = pname_re = re.compile('(\s|\W)+')
@@ -7,25 +8,7 @@ ipv4_re = i4_re = re.compile('^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$')
 ipv6_re = i6_re = re.compile('^(?:[A-F0-9]{1,4}:){7}[A-F0-9]{1,4}$')
 fqdn_re = re.compile('[a-zA-Z]')
 
-def validate_element(func):
-    '''Assure that the first argument is a class of the
-    lxml.etree module. This is weak validation but it does
-    provide some level of assurance that we're not working with
-    a Python xml.etree object.
-    '''
-
-    def validate(ele):
-
-        if ele.__class__.__module__ != 'lxml.etree':
-            raise TypeError(
-                'element must be of type lxml.etree'
-            )
-        else:
-            return func(ele)
-
-    return validate
-
-ve = validate_element
+ve = decorators.validate_lxml_module
 
 class FromXML:
 
@@ -255,6 +238,17 @@ class ReportItem:
             elif val == 'false': val = False
 
             self.__setattr__(attr,val)
+
+        self.exploitable = self.exploit_available
+
+        # Determine if the report item is dealing with SSL/TLS
+        for k in ['ssl','tls']:
+
+            wrapped = False
+            if self.plugin_name.find(k) > -1 or self.plugin_name.find(k.upper()) > -1:
+                wrapped = True
+
+            self.__setattr__(k,wrapped)
 
 
     @staticmethod

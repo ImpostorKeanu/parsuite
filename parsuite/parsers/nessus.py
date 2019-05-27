@@ -1,9 +1,49 @@
 #!/usr/bin/env python3
 
 from parsuite.abstractions.xml.nessus import *
-from parsuite.abstractions.xml.validators import validate_lxml_tree
 from xml.etree.ElementTree import ElementTree
 from re import match,search
+
+def parse_http_links(tree,*args,**kwargs):
+    
+    links = []
+
+    svc_names = set([
+            ri.attrib['svc_name'] for ri in tree.findall('.//ReportItem')
+            if search(r'http',ri.attrib['svc_name']) and ri.attrib['protocol'] == 'tcp'
+            ]   
+        )
+
+    # Iterate over each plugin id
+    for svc_name in svc_names:
+
+        # Get all report items associated with that plugin id and ../ReportHost
+        for erhost in tree.findall(f'.//ReportItem[@svc_name="{svc_name}"]/..'):
+
+            rhost = FromXML.report_host(erhost)
+
+            # All ports for this host that support SSL/TLS
+            # pluginID 56984 = SSL/TLS Versions Supported
+            tunnel_ports = [
+                int(v) for v in erhost.xpath('//ReportItem[@pluginID="56984"]/@port')
+            ]
+
+            for eri in erhost.findall(f'.//ReportItem[@svc_name="{svc_name}"]'):
+
+                ri = FromXML.report_item(eri)
+                
+                if ri.port.number in tunnel_ports:
+                    scheme = 'https://'
+                else:
+                    scheme = 'http://'
+
+                for addr in [rhost.ip]+rhost.hostnames:
+
+                    link = scheme+addr+':'+str(ri.port.number)
+                    if link in links: continue
+                    links.append(link)
+
+    return links
 
 def parse_nessus(tree,no_services):
 

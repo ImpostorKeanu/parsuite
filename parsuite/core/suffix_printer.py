@@ -18,7 +18,7 @@ def suffix_print(s, suf=DEF, sep='', file=stdout, end='\n'):
 
 def error_suffix_print(s, suf=DEF, sep='', end='\n'):
 
-    suffix_print(s, suf=DEF, sep=sep, file=stderr, end=end)
+    suffix_print(s, suf=suf, sep=sep, file=stderr, end=end)
 
 sprint = suffix_print
 esprint = error_suffix_print

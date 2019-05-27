@@ -1,6 +1,5 @@
 from parsuite.core.argument import Argument,DefaultArguments
 from parsuite.abstractions.xml.nessus import *
-from parsuite.abstractions.xml.validators import validate_lxml_tree
 from parsuite import helpers
 from parsuite.core.suffix_printer import *
 from pathlib import Path
@@ -23,14 +22,24 @@ args = [
         action='store_true',
         help='''Dump plugin output to disk. This has potential to
         consume vast amounts of disk space. Tread lightly.
+        '''),
+    Argument('--disable-color-output', '-dc',
+        action='store_true',
+        help='''Disable color output.
         ''')
 ]
 
 # plugin_name_re = pname_re = re.compile('(\-|\s|\\|\<|\>|\=|\(|\)|/|\'|\"|\.)+')
 plugin_name_re = pname_re = re.compile('(\s|\W)+')
 
-def parse(input_file=None, output_directory=None, plugin_outputs=False
-        *args,**kwargs):
+def parse(input_file=None, output_directory=None, plugin_outputs=False,
+        disable_color_output=None, *args,**kwargs):
+
+    if disable_color_output:
+        color = False
+    else:
+        from termcolor import colored
+        color = True
    
     # build output directory
     bo = base_output_path = helpers.handle_output_directory(
@@ -42,9 +51,12 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False
     sprint('Loading Nessus file')
     tree = ET.parse(input_file)
 
+    os.mkdir('additional_info')
+    os.chdir('additional_info')
+
     # Dump target ip addresses
-    sprint('Dumping target information')
-    with open('target_information.txt','w') as of:
+    sprint('Dumping target information (all scanned addresses)')
+    with open('target_ips.txt','w') as of:
 
         # dump all target s to disk    
         for pref in tree.findall('.//preference'):
@@ -57,6 +69,38 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False
                 of.write('\n'.join(value.text.split(',')))
                 break
 
+    # Dump responsive ips
+    sprint('Dumping responsive ip addresses')
+    with open('responsive_ips.txt','w') as of:
+
+        cache = []
+
+        for tag in tree.xpath('//tag[@name="host-ip"]'):
+            ip = tag.text
+            if ip not in cache:
+                cache.append(ip)
+
+        of.write('\n'.join(sorted(cache)))
+
+    # Dump additional hostnames to disk
+    for a in ['netbios-name', 'host-fqdn', 'host-rdns']:
+
+        if a[-1] != 's': fname = a+'s'
+        else: fname = a
+        fname += '.txt'
+        sprint(f'Dumping {a} values to {fname}')
+
+        values = {}
+        if tree.xpath(f'//tag[@name="{a}"]'):
+
+            with open(fname.replace('-','_'),'w') as outfile:
+
+                values = []
+                for ele in tree.xpath(f'//tag[@name="{a}"]'):
+                    if not ele.text in values:
+                        values.append(ele.text)
+                        outfile.write(ele.text+'\n')
+
     # Dump open ports
     sprint('Dumping open ports')
     with open('open_ports.txt','w') as of:
@@ -67,12 +111,22 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False
 
         of.write('\n'.join(ports))
 
+    os.chdir('..')
+
     # =====================================
     # BEGIN DUMPING THE REPORT BY PLUGIN ID
     # =====================================
 
     # Dump plugin outputs
-    sprint('Dumping plugin outputs\n')
+    sprint('Dumping report items\n')
+    finding_index = {
+        'NONE':[],
+        'LOW':[],
+        'MEDIUM':[],
+        'HIGH':[],
+        'CRITICAL':[]
+    }
+
     for plugin_id in list(set(tree.xpath('//@pluginID'))):
 
         rhosts = {}
@@ -84,15 +138,46 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False
         # ==========================================================
 
         for eri in tree.xpath(f'//ReportItem[@pluginID="{plugin_id}"]'):
-
             ri = FromXML.report_item(eri)
 
             if not ri.protocol in protocols:
                 protocols.append(ri.protocol)
 
+            color_lookup = {
+                    'none':'blue',
+                    'low':'green',
+                    'medium':'yellow',
+                    'high':'red',
+                    'critical':'magenta'
+            }
+
+
             if alert:
-                print(f'{ri.plugin_name}')
                 alert = False
+
+                if color:
+                    rf = '['+colored(ri.risk_factor.upper(),
+                            color_lookup[ri.risk_factor])+']'
+        
+                    if ri.risk_factor.__len__() < 9:
+                        rf += ' ' * (9-ri.risk_factor.__len__())
+    
+                    rf += ri.plugin_name
+    
+                    if ri.exploitable:
+                        rf += ' ['+colored('EXPLOITABLE','red',attrs=['blink','bold'])+']'
+                else:
+
+                    rf = '['+ri.risk_factor.upper()+']'
+        
+                    if ri.risk_factor.__len__() < 9:
+                        rf += ' ' * (9-ri.risk_factor.__len__())
+    
+                    rf += ri.plugin_name
+    
+                    if ri.exploitable: rf += ' [EXPLOITABLE]'
+
+                print(rf)
 
             parent = eri.getparent()
             name = parent.get('name')
@@ -117,6 +202,17 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False
                 ri.port.plugin_outputs.append_output(
                     plugin_id, ri.plugin_output
                 )
+
+        # Handle finding index item
+        sev = ri.risk_factor.upper()
+        prefix = f'[{sev}] '
+        suffix = ' '
+        if ri.exploit_available:
+            suffix += '[EXPLOITABLE]'
+        if ri.exploit_frameworks:
+            fws = ','.join([fw.upper() for fw in ri.exploit_frameworks])
+            suffix += f'[EXPLOIT FRAMEWORKS: {fws}]'
+        finding_index[sev].append(prefix+ri.plugin_name+suffix)
         
         # ================================
         # BUILD REPORT ITEM DIRECTORY NAME
@@ -244,6 +340,16 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False
                     outfile.write('\n'.join(lst)+'\n')
 
         os.chdir('../../')
+
+    os.chdir('additional_info')
+
+    sprint('Writing report item index to')
+    with open('report_item_index.txt','w') as outfile:
+
+        for k in ['CRITICAL','HIGH','MEDIUM','LOW','NONE']:
+
+            if finding_index[k]:
+                outfile.write('\n'.join(finding_index[k])+'\n')
 
     print()
     return 0

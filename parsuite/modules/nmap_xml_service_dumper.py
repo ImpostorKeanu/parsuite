@@ -1,7 +1,9 @@
 from parsuite.core.argument import Argument,DefaultArguments
+from parsuite.abstractions.xml.generic import network_host as NH
 from parsuite import helpers
 from parsuite.core.suffix_printer import *
-import xml.etree.ElementTree as ET
+#import xml.etree.ElementTree as ET
+from lxml import etree as ET
 import argparse
 import os
 
@@ -28,25 +30,14 @@ def parse(input_file=None, output_directory=None,
     tree = ET.parse(input_file)
 
     os.chdir(output_directory)
-    services = tree.findall('.//service')
-    handled = []
-    change_flag = False
-
+    services = set(tree.xpath('//service/@name'))
     sprint(f'Parsing {len(services)} services...\n')
-    for ser in services:
 
-        if change_flag:
-            change_flag = False
-            os.chdir(bo)
-
-        sname = service_name = ser.get('name')
+    hcache = []
+    for sname in services:
 
         # skip tcpwrapped services unless specified
         if sname == 'tcpwrapped' and not tcpwrapped:
-            continue
-
-        # skip any service we've already handled
-        if sname in handled:
             continue
 
         hosts = tree.findall(
@@ -54,8 +45,6 @@ def parse(input_file=None, output_directory=None,
         )
         
         if hosts:
-            handled.append(sname)
-            change_flag = True
             os.mkdir(sname)
             os.chdir(sname)
         else:
@@ -63,51 +52,85 @@ def parse(input_file=None, output_directory=None,
 
         print(f'- {sname}')
 
-        ofs = out_files = {
-            'addr_protocol_portid_name':open(
-                'name_addr_protocol_portid.txt','w'
-            ),
-            'addr_protocol_portid':open(
-                'addr_protocol_portid.txt','w'
-            ),
-            'addr_portid':open(
-                'addr_portid.txt','w'
-            ),
-            'addr':open(
-                'addr.txt','w'
-            )
+        '''
+        {
+            protocol:{
+                'addresses':[],
+                'sockets':[],
+                'fqdns':[],
+                'fsockets':[],
+            }
         }
+        '''
+        to_dump = {}
 
-        for host in hosts:
+        # Iterate over a set of unique protocol/port combinations
+        # associated with a given service. Each item of the set will
+        # be a tuple in the following form: (protocol,port)
+        for tup in set([
+                (p.get('protocol'),p.get('portid'),) for p in
+                tree.xpath(f'//service[@name="{sname}"]/..')
+            ]):
 
-            addr = host.find('address').get('addr')
-            ports = host.findall(
-                f'.//service[@name="{sname}"]/..'
-            )
+            protocol, port = tup
 
-            for port in ports:
+            if protocol not in to_dump:
 
-                portid = port.get('portid')
-                protocol = port.get('protocol')
+                to_dump[protocol] = {
+                    'addresses':[],
+                    'sockets':[],
+                    'fqdns':[],
+                    'fsockets':[]
+                }
 
-                ofs['addr_protocol_portid_name'].write(
-                    f'{addr}:{protocol}:{portid}:{sname}\n'
-                )
+            dct = to_dump[protocol]
 
-                ofs['addr_protocol_portid'].write(
-                    f'{addr}:{protocol}:{portid}\n'
-                )
+            # 
+            for ehost in tree.xpath(
+                    f'.//service[@name="{sname}"]/../../../status[@state=' \
+                    f'"up"]/../ports/port[@protocol="{protocol}" and ' \
+                    f'@portid="{port}"]/../..'
+                ):
 
-                ofs['addr_portid'].write(
-                    f'{addr}:{portid}\n'
-                )
+                try:
+                    host = hcache[hcache.index(ehost.get('addr'))]
+                except:
+                    host = NH.FromXML.host(ehost)
 
-                ofs['addr'].write(
-                    f'{addr}\n'
-                )
+                if host.ipv4_address:
+                    dct['addresses'].append(host.ipv4_address)
+                    dct['sockets'].append(
+                        host.ipv4_address+f':{port}'
+                    )
 
-        # close the files
-        for handle,f in ofs.items():
-            f.close()
+                if host.ipv6_address:
+                    dct['addresses'].append(host.ipv6_address)
+                    dct['sockets'].append(
+                        f'[{host.ipv6_address}]:{port}'
+                    )
+
+                dct['fqdns'] += host.hostnames
+
+                for hn in host.hostnames:
+                    dct['fsockets'].append(hn+f':{port}')
+
+        # =======================================
+        # DUMP OUTPUT TO DISK FOR CURRENT SERVICE
+        # =======================================
+
+        for proto,output in to_dump.items():
+
+            for tpe,lst in output.items():
+
+                if not lst: continue
+
+                with open(f'{protocol}_{tpe}.txt','w') as outfile:
+
+                    outfile.write(
+                        '\n'.join(sorted(list(set(lst))))
+                    )
+
+        # Change back to main output directory
+        os.chdir('..')
 
     return 0

@@ -1,7 +1,49 @@
 #!/usr/bin/env python3
 from parsuite.abstractions.xml.nmap import *
 from xml.etree.ElementTree import ElementTree
+from parsuite.abstractions.xml.generic import network_host as nh
 from sys import exit
+
+def parse_http_links(tree,*args,**kwargs):
+
+    links = []
+
+    for ehost in tree.findall('.//host'):
+
+        host = nh.FromXML.host(ehost)
+        if host.status != 'up': continue
+
+        hostnames = []
+        if host.ipv4_address: hostnames.append(host.ipv4_address)
+        if host.ipv6_address: hostnames.append(host.ipv6_address)
+        hostnames += host.hostnames
+
+        # BEGIN ENUMERATING PORTS
+        for eport in ehost.findall('.//port'):
+
+            port = nh.FromXML.port(eport)
+
+            # ASSURE THIS IS AN HTTP SERVICE
+            if not search('http',port.service.name) or port.state != 'open' or (
+                    port.protocol != 'tcp'):
+                continue
+
+            for hostname in hostnames:
+
+                if not search('https',port.service.name):
+
+                    if port.service.tunnel == 'ssl':
+                        link = f'https://{hostname}:{port.number}'
+                    else:
+                        link = f'http://{hostname}:{port.number}'
+
+                else:
+
+                    link = f'https://{hostname}:{port.number}'
+
+                if not link in links: links.append(link)
+
+    return links
 
 def parse_nmap(tree,require_open_ports):
 
