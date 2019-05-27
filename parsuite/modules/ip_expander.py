@@ -3,7 +3,6 @@ from parsuite import helpers
 from parsuite.core.suffix_printer import *
 from sys import exit,stderr,stdout
 import re
-from IPython import embed
 from sys import exit
 import ipaddress
 

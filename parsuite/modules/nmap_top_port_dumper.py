@@ -6,7 +6,6 @@ from sys import exit,stderr,stdout
 from collections import namedtuple
 import re
 
-from IPython import embed
 from sys import exit
 
 help='Parse the Nmap services file and dump the most commonly open ports.'
