@@ -62,13 +62,17 @@ def parse(input_file=None, output_file=None, delimiter=None, **kwargs):
     esprint('Extracting paths and names')
 
     writer = csv.writer(outfile, delimiter=delimiter)
-    writer.writerow(['name','path'])
+    writer.writerow(['name','path','subtitle'])
 
-    for title_element in tree.xpath('//artdeco-entity-lockup-title'):
+    for content in tree.xpath('//artdeco-entity-lockup-content'):
 
-        # This is the element that will contain the name as a child and
-         # the link as an attribute
-        a = title_element.find('a[@href]')
+        title = content.xpath('./artdeco-entity-lockup-title')
+        
+        if title is None: continue
+
+        title = title[0]
+        
+        a = title.find('a[@href]')
 
         if a is None: continue
 
@@ -80,7 +84,20 @@ def parse(input_file=None, output_file=None, delimiter=None, **kwargs):
                 .text \
                 .strip()
 
-        writer.writerow([name,path])
+        # Get the subtitle
+        sub = ''
+
+        subtitle = content.xpath('./artdeco-entity-lockup-subtitle')
+
+        if subtitle is not None:
+
+            subs = []
+
+            for span in subtitle[0].xpath('.//span'):
+
+                if span.text and span.text != '...': sub += f'{sub} {span.text.strip()}'
+
+        writer.writerow([name,path,sub.strip()])
 
     outfile.close()
 
