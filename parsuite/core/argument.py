@@ -40,7 +40,7 @@ class DefaultArguments:
 
     output_file_stdout_default = Argument('--output-file','-of',
         default=stdout,
-        help='Output file to dump. Default: %(default)s')
+        help='Output file to dump. Default: stdout')
     
     input_file_optional = Argument('--input-file','-if',
         default='',
