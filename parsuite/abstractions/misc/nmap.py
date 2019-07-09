@@ -40,6 +40,19 @@ class Service:
         else:
             return False
 
+    def __add__(self, val):
+        '''Return the port number summed with val.
+        '''
+
+        if val.__class__ != int and val.__class__ != Service:
+            raise ValueError(
+                   'val must be either int or Service'
+            )
+
+        if val.__class__ == Service: val = val.port
+
+        return self.port + val
+
     @staticmethod
     def from_line(line):
         '''Create a Service object from a line in the Nmap

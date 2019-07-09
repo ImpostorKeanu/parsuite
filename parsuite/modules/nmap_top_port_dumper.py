@@ -20,6 +20,8 @@ args = [
         help='The top number of ports to return'),
     Argument('--csv-only','-csv', action='store_true',
         help='Return only the CSV output'),
+    Argument('--ranges-only','-r', action='store_true',
+        help='Return only output as ranges'),
     Argument('--protocols','-p',
         choices=['tcp','udp','sctp'],
         default=['tcp'],
@@ -42,7 +44,7 @@ service_re = re.compile('^(?P<name>(\w|\-|\.|:)+)\s+'\
 
 def parse(csv_only=None,
         tcp=None, udp=None, sctp=None, top=None, protocols=[], 
-        name_search=[], offset=0,**kwargs):
+        name_search=[], offset=0, ranges_only=False, **kwargs):
 
     # ================
     # HANDLE ARGUMENTS
@@ -69,18 +71,54 @@ def parse(csv_only=None,
 
     csv_cache = {}
 
+    range_svs = {}
+
     for proto,srvs in services.items():
 
         srvs = sorted(services[proto],reverse=True)
         if offset: srvs = srvs[offset:offset+top]
         else: srvs = srvs[:top]
 
+        isrvs = sorted([s.port for s in srvs])
+
+        range_svs[proto] = []
+
+        counter, start, stop = 1, 0, 1
+        while stop < len(isrvs):
+
+            p0, p1 = isrvs[start], isrvs[stop]
+            if p0+counter != p1 or stop == len(isrvs)-1:
+
+                if stop-start == 1:
+
+                    range_svs[proto].append(str(p0))
+                    start += 1
+
+                    if stop == len(isrvs)-1:
+
+                        range_svs[proto].append(str(p1))
+
+                else:
+
+                    slce = [p for p in isrvs[start:stop]]
+                    range_svs[proto].append(
+                            '-'.join([str(slce[0]),str(slce[-1])])
+                    )
+
+                start = stop
+                counter = 1
+
+            else: counter += 1
+
+
+            stop += 1
+
         srvs = sorted(srvs,reverse=True)
         csv_cache[proto] = ','.join(
             [str(p.port) for p in srvs]
         )
 
-        if not csv_only:
+        if not csv_only and not ranges_only:
 
             print('{:-<39}'.format(''),file=stderr)
             print('{: >24}'.format(proto.upper()+' Services'),file=stderr)
@@ -96,10 +134,16 @@ def parse(csv_only=None,
 
             print(file=stderr)
 
-    esprint('Printing CSV List(s)')
 
-    for proto,ports in csv_cache.items():
-        esprint(f'{proto}',suf='-')
-        print(ports)
+    if ranges_only:
+        esprint('Printing Range List(s)')
+        for proto,ranges in range_svs.items():
+            esprint(f'{proto}',suf='-')
+            print(','.join(ranges))
+    else:
+        esprint('Printing CSV List(s)')
+        for proto,ports in csv_cache.items():
+            esprint(f'{proto}',suf='-')
+            print(ports)
     
     return 0
