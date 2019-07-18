@@ -8,7 +8,7 @@ import argparse
 import os
 import re
 from sys import exit
-from sys import exit
+import ipaddress
 
 
 help='Parse a Nessus file and dump the contents to disk by: '\
@@ -45,11 +45,11 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
     bo = base_output_path = helpers.handle_output_directory(
         output_directory
     )
-    os.chdir(bo)
 
     # Load the Nessus file
     sprint('Loading Nessus file')
     tree = ET.parse(input_file)
+    os.chdir(bo)
 
     os.mkdir('additional_info')
     os.chdir('additional_info')
@@ -127,12 +127,43 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
         'CRITICAL':[]
     }
 
+    color_lookup = {
+            'none':'blue',
+            'low':'green',
+            'medium':'yellow',
+            'high':'red',
+            'critical':'magenta'
+    }
+
+    # ============================================
+    # GET LONGEST PID LENGTH FOR OUTPUT FORMATTING
+    # ============================================
+
+    pid_len = 0
+    for pid in list(set(tree.xpath('//@pluginID'))):
+        plen = pid.__len__()
+        if plen > pid_len: pid_len = plen
+    pid_len += 2
+
+    # =================
+    # PARSE EACH PLUGIN
+    # =================
+
+    header = 'Risk       ' \
+          'Exploitable    ' \
+          'Plugin ID   ' \
+          'Plugin Name'
+
+    print(header)
+    print('-'*header.__len__())
+
     for plugin_id in list(set(tree.xpath('//@pluginID'))):
 
         rhosts = {}
         protocols = []
         alert = True
-
+        pid = plugin_id
+        
         # ==========================================================
         # EXTRACT PLUGIN IDS, PROTOCOLS, AND INITIALIZE REPORT HOSTS
         # ==========================================================
@@ -143,39 +174,43 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
             if not ri.protocol in protocols:
                 protocols.append(ri.protocol)
 
-            color_lookup = {
-                    'none':'blue',
-                    'low':'green',
-                    'medium':'yellow',
-                    'high':'red',
-                    'critical':'magenta'
-            }
-
-
             if alert:
                 alert = False
 
                 if color:
-                    rf = '['+colored(ri.risk_factor.upper(),
-                            color_lookup[ri.risk_factor])+']'
+                    rf = colored(ri.risk_factor.upper(),
+                            color_lookup[ri.risk_factor])
         
-                    if ri.risk_factor.__len__() < 9:
-                        rf += ' ' * (9-ri.risk_factor.__len__())
-    
-                    rf += ri.plugin_name
-    
-                    if ri.exploitable:
-                        rf += ' ['+colored('EXPLOITABLE','red',attrs=['blink','bold'])+']'
-                else:
+                    if ri.risk_factor.__len__() < 11:
+                        rf += ' ' * (11-ri.risk_factor.__len__())
 
-                    rf = '['+ri.risk_factor.upper()+']'
+                    if ri.exploitable:
+                        rf += colored('True ','red')
+                    else:
+                        rf += 'False'
+
+                    rf += '      '
+                    
+                else:
+                    
+                    rf = ri.risk_factor.upper()
         
-                    if ri.risk_factor.__len__() < 9:
-                        rf += ' ' * (9-ri.risk_factor.__len__())
+                    if ri.risk_factor.__len__() < 11:
+                        rf += ' ' * (11-ri.risk_factor.__len__())
+
+                    if ri.exploitable:
+                        rf += 'True '
+                    else:
+                        rf += 'False'
+
+                    rf += '      '
+                    
+                if pid.__len__() < pid_len:
+                    pid += ' ' * (pid_len-pid.__len__())
+                    pid += '    '
     
-                    rf += ri.plugin_name
-    
-                    if ri.exploitable: rf += ' [EXPLOITABLE]'
+                rf += '    ' + pid
+                rf += ri.plugin_name
 
                 print(rf)
 
@@ -229,7 +264,6 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
         if not Path(ri.risk_factor).exists():
             os.mkdir(ri.risk_factor)
         os.chdir(ri.risk_factor)
-
 
         if not Path(ri_dir).exists():
             os.mkdir(ri_dir)
@@ -343,7 +377,8 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
 
     os.chdir('additional_info')
 
-    sprint('Writing report item index to')
+    print()
+    sprint('Writing report item index')
     with open('report_item_index.txt','w') as outfile:
 
         for k in ['CRITICAL','HIGH','MEDIUM','LOW','NONE']:
