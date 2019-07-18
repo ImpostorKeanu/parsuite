@@ -240,7 +240,7 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
 
         # Handle finding index item
         sev = ri.risk_factor.upper()
-        prefix = f'[{sev}] '
+        prefix = f'[{sev}] [{plugin_id}] '
         suffix = ' '
         if ri.exploit_available:
             suffix += '[EXPLOITABLE]'
@@ -348,17 +348,70 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
                 if plugin_outputs: 
                     plugin_outputs_file.close()
 
-            ips = sorted(set((ips)))
-            sockets = sorted(set((sockets)))
-            fqdns = sorted(set((fqdns)))
-            fsockets = sorted(set((fsockets)))
-            ports = sorted(set((ports)))
+            # =====================
+            # HANDLE IPv4 ADDRESSES
+            # =====================
 
+            '''
+            
+            IPs are now properly sorted before written to disk.
+
+            1. convert each ipv4 string to an ipaddress.ip_address object
+            2. sort the ip_address objects
+            3. convert each ip_address object back to a string
+            '''
+
+            ips = [ip.__str__() for ip in sorted(set([ipaddress.ip_address(ip) for ip in ips]))]
+
+            # ===================
+            # HANDLE IPv4 SOCKETS
+            # ===================
+
+            '''
+
+            Sockets are now properly sorted before written to disk.
+
+            1. unique string sockets
+            2. map each string ip to a list of ports
+            3. convert each string ip to an ipaddress.ip_address object
+            4. sort the ip_address objects
+            5. create a new list of sockets
+            '''
+
+            sockets = set(sockets)
+            smap = {}
+
+            for s in sockets:
+                ip,port = s.split(':')
+                if ip not in smap:
+                    smap[ip] = [port]
+                elif port not in smap[ip]:
+                    smap[ip].append(port)
+
+            sips = [ip.__str__() for ip in sorted([ipaddress.ip_address(ip) for ip in set(smap.keys())])]
+            sockets = []
+            for sip in sips:
+                for p in sorted(smap[sip]):
+                    s = f'{sip}:{port}'
+                    if s not in sockets: sockets.append(s)
+
+            # ============
+            # HANDLE PORTS
+            # ============
+            
+            ports = sorted(set(ports))
             if ports:
 
                 # write a list of unique ports to disk
                 with open(f'{protocol}_ports.txt','w') as outfile:
                     outfile.write('\n'.join([str(p) for p in ports])+'\n')
+
+            # ============
+            # HANDLE FQDNS
+            # ============
+            
+            fqdns = sorted(set(fqdns))
+            fsockets = sorted(set(fsockets))
 
             # write address lists to disk
             for fmt,lst in {'ips':ips,
@@ -380,6 +433,9 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
     print()
     sprint('Writing report item index')
     with open('report_item_index.txt','w') as outfile:
+
+        outfile.write('[Risk Factor] [Plugin ID] Plugin Name [Exploitable]' \
+                ' [Exploit Frameworks]\n')
 
         for k in ['CRITICAL','HIGH','MEDIUM','LOW','NONE']:
 
