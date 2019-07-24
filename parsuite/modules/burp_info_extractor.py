@@ -202,7 +202,8 @@ class Base64:
     b64tob = b64decode
 
 # TODO: Update this
-help = '''Help here'''
+help = '''Accept an XML file containing Burp items and
+extract the request/response to a file.'''
 
 args = [
     DefaultArguments.input_file,
@@ -227,8 +228,14 @@ def parse(input_file=None, output_directory=None, **kwargs):
 
     for item in tree.xpath('//item'):
 
-        item = Item.from_lxml(item)
+        try:
 
+            item = Item.from_lxml(item)
+
+        except Exception as e:
+
+            esprint(f'Failed to parse item #{counter}: {e}')
+            continue
 
         with open(str(counter)+'.req','w') as outfile:
 
