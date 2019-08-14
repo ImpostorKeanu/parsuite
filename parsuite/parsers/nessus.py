@@ -11,7 +11,7 @@ def parse_http_links(tree,*args,**kwargs):
 
     svc_names = set([
             ri.attrib['svc_name'] for ri in tree.findall('.//ReportItem')
-            if search(r'http',ri.attrib['svc_name']) and ri.attrib['protocol'] == 'tcp'
+            if search(r'http|www',ri.attrib['svc_name']) and ri.attrib['protocol'] == 'tcp'
             ]   
         )
 
