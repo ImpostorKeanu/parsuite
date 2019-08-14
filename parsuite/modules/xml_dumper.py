@@ -67,7 +67,7 @@ args = [
         nargs='+',
         help='''Search services for a string. Default: %(default)s
         '''),
-    Argument(
+#    Argument(
 #        '--mangle-http',
 #        action='store_true',
 #        help='''Mangle HTTP services into an HTTP/HTTPS link.
