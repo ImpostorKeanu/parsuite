@@ -68,11 +68,11 @@ args = [
         help='''Search services for a string. Default: %(default)s
         '''),
     Argument(
-        '--mangle-http',
-        action='store_true',
-        help='''Mangle HTTP services into an HTTP/HTTPS link.
-        Default: %(default)s
-        '''),
+#        '--mangle-http',
+#        action='store_true',
+#        help='''Mangle HTTP services into an HTTP/HTTPS link.
+#        Default: %(default)s
+#        '''),
     Argument(
         '--protocols',
         nargs='+',
@@ -87,7 +87,7 @@ PLURAL_MAP = {'address':'addresses','socket':'sockets','uri':'uris',
 
 def parse(input_files, format, all_addresses, fqdns, 
         port_required, port_search, service_search,
-        mangle_http, protocols, transport_layer,
+        protocols, transport_layer,
         delimiter, sreg, *args, **kwargs):
 
     format = PLURAL_MAP[format]
