@@ -113,6 +113,9 @@ def parse(input_files, format, all_addresses, fqdns,
         
         tree = ET.parse(input_file)
         fingerprint = helpers.fingerprint_xml(tree)
+
+        # Reference to globas is a means of getting a handle on the appropriate
+        # class to perform parsing.
         for address,host in globals()['parse_'+fingerprint](tree,port_required) \
             .items():
             if not address in final_report:

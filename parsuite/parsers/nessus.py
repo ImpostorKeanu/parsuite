@@ -3,6 +3,7 @@
 from parsuite.abstractions.xml.nessus import *
 from xml.etree.ElementTree import ElementTree
 from re import match,search
+import pdb
 
 def parse_http_links(tree,*args,**kwargs):
     
@@ -57,7 +58,20 @@ def parse_nessus(tree,no_services):
     status = 'up'
     status_reason = 'nessus-up'
 
+    # Get a list of hosts with at least one open port
+    # appears as though the "Service detction" plugin family
+    # can be used to find this.
+    if no_services:
+        alive_hosts = tree.findall(
+                './/ReportItem[@pluginFamily="Service detection"]/..'
+        )
+    else:
+        alive_hosts = []
+
     for rhost in tree.findall('.//ReportItem/..'):
+
+        # Assure that the current host has at least one open port
+        if alive_hosts and rhost not in alive_hosts: continue
 
         name = rhost.get('name')
         if name == None: name = None
