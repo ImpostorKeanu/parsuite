@@ -8,7 +8,8 @@ import os
 import re
 from time import sleep
 
-help='Link cracked hashes back with uncracked values.'
+help='''Map cleartext passwords recovered from password cracking back 
+to uncracked values.'''
 
 args = [
     Argument('--hash-files','-hf',

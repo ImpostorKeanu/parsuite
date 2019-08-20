@@ -6,8 +6,8 @@ import re
 from random import randint
 from string import ascii_letters as ASCII
 
-help='''Base64 encode a series of values or contents of files. WARNING:
- files are slurped and encoded as a whole.
+help='''Accept a link as input and replace a template with
+random values.
 '''
 
 
@@ -19,7 +19,7 @@ args = [
     Argument('--injection-template','-ij',
         default='<<<:RAND:>>>',
         help='''Template that will be randomized.
-        '''),
+        Default: %(default)s'''),
     Argument('--count','-c',
         required=True,
         type=int,
@@ -30,7 +30,7 @@ args = [
         default=8,
         type=int,
         help='''Length of random values generated.
-        ''')
+        Default: %(default)s''')
 ]
 
 USED_VALUES = []

@@ -5,10 +5,8 @@ import argparse
 import os
 import re
 
-help='Parse files containing NTLMv2 hashes in the commong format produced '\
-    'by Responder and Impacket and dump them to stdout. Messages printed '\
-    'that are not hashes are dumped to stderr. Use the -du flag to disable '\
-    'uniquing of username/domain combinations.'
+help='''Parse output from an rdp_sec_check scan and dump output to
+individual files relative to issue, such as "nla_not_enforced."'''
 
 ISSUE_CHOICES=['nla_not_enforced',
 'insecure_encryption_levels',
