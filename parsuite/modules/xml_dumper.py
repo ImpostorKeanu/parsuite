@@ -1,13 +1,14 @@
 from parsuite.core.argument import Argument,DefaultArguments,ArgumentGroup,MutuallyExclusiveArgumentGroup
 from parsuite import helpers
 from parsuite.core.suffix_printer import *
-from parsuite.parsers.nmap import parse_nmap
-from parsuite.parsers.nessus import parse_nessus
+from parsuite.parsers.nmap import parse_nmap, parse_http_links as parse_nmap_links
+from parsuite.parsers.nessus import parse_nessus, parse_http_links as parse_nessus_links
 from parsuite.parsers.masscan import parse_masscan
 from sys import stderr,exit
 import xml.etree.ElementTree as ET
 import argparse
 import os
+import pdb
 
 help='''Dump hosts and open ports from multiple masscan, nmap,
 or nessus files. A generalized abstraction layer is used to
@@ -67,19 +68,22 @@ args = [
         nargs='+',
         help='''Search services for a string. Default: %(default)s
         '''),
-#    Argument(
-#        '--mangle-http',
-#        action='store_true',
-#        help='''Mangle HTTP services into an HTTP/HTTPS link.
-#        Default: %(default)s
-#        '''),
+    Argument(
+        '--http-links',
+        action='store_true',
+        help='''Mangle and return only links for HTTP services. Will attempt
+        to create individual links for all observed hostnames EXCEPT SAN values
+        in certificates. Note that this flag is not available for Masscan output
+        since it does not perform service scanning. Default: %(default)s.
+        '''),
     Argument(
         '--protocols',
         nargs='+',
         default=['tcp'],
         choices=['tcp','udp','sctp','ip'],
-        help='''Protocols to dump: tcp, udp, sctp, ip. Note that not all
-        file formats support all protocols. Default: %(default)s''')
+        help='''Transport layer protocols to dump: tcp, udp, sctp, ip. Note 
+        that not all file formats support all protocols.
+        Default: %(default)s''')
 ]
 
 PLURAL_MAP = {'address':'addresses','socket':'sockets','uri':'uris',
@@ -88,9 +92,42 @@ PLURAL_MAP = {'address':'addresses','socket':'sockets','uri':'uris',
 def parse(input_files, format, all_addresses, fqdns, 
         port_required, port_search, service_search,
         protocols, transport_layer,
-        delimiter, sreg, *args, **kwargs):
+        delimiter, http_links, sreg, *args, **kwargs):
 
     format = PLURAL_MAP[format]
+
+    # ======================
+    # HANDLE LINK GENERATION
+    # ======================
+
+    if http_links:
+        sprint('Parsing HTTP links')
+        # TODO: Update this when lxml has been normalized across all parser
+        import lxml.etree as ET
+        links = []
+        for input_file in input_files:
+
+            try:
+                tree = ET.parse(input_file)
+                f = fingerprint = helpers.fingerprint_xml(tree)
+                if not f:
+                    esprint(f'Unknown document provided: {input_file}')
+                if not f in ['nessus','nmap']:
+                    esprint(f'Unsupported document provided: {input_file}')
+                else:
+                    esprint(f'Dumping {f} file: {input_file}')
+                    links += globals()[f'parse_{f}_links'](
+                        tree, *args, **kwargs
+                    )
+    
+            except Exception as e:
+                esprint(f'Unhandled exception occurred while parsing: {input_file}')
+                print('\n'+e.__str__()+'\n')
+    
+        print('\n'.join(list(set(sorted(links)))))
+    
+        return 0
+            
 
     # ==========================
     # NEGOTIATE THE SCHEME LAYER
@@ -127,7 +164,6 @@ def parse(input_files, format, all_addresses, fqdns,
     # ==========================
     # DUMP THE RESULTS TO STDOUT
     # ==========================
-
 
     # Build the appropriate output
     output = []
