@@ -6,7 +6,7 @@ from lxml import etree as ET
 import re
 import argparse
 
-help='''Dump LDAP objects from a PSML file exported by Wireshark in PDML format.
+help='''Dump LDAP objects from a file exported by Wireshark in PDML format.
 '''
 
 args = [
