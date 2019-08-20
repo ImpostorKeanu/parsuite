@@ -201,9 +201,8 @@ class Base64:
     # Alias b64decode
     b64tob = b64decode
 
-# TODO: Update this
-help = '''Accept an XML file containing Burp items and
-extract the request/response to a file.'''
+help = '''Input an XML file containing Burp items and dump each 
+transaction to a directory.'''
 
 args = [
     DefaultArguments.input_file,
