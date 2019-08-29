@@ -43,7 +43,7 @@ if __name__ == '__main__':
                 group = sub.add_argument_group(*arg.pargs, **arg.kwargs)
                 add_args(group,arg)
 
-            if arg.__class__ == MutuallyExclusiveArgumentGroup:
+            elif arg.__class__ == MutuallyExclusiveArgumentGroup:
 
 
                 group = sub.add_mutually_exclusive_group(
