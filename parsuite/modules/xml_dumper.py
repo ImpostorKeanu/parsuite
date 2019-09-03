@@ -127,6 +127,8 @@ def parse(input_files, format, all_addresses, fqdns,
         print('\n'.join(list(set(sorted(links)))))
     
         return 0
+    else:
+        import xml.etree.ElementTree as ET
             
 
     # ==========================
