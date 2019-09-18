@@ -5,6 +5,22 @@ from xml.etree.ElementTree import Element
 from parsuite.abstractions.xml import validators
 import types
 from base64 import b64encode
+from string import ascii_letters as ASCII
+from random import randint
+
+def gen_rand(length,used_values=None):
+
+    used_values = used_values or []
+
+    output = ''
+
+    while True:
+        for n in range(0,length):
+            if randint(0,1): output += str(randint(0,9))
+            else: output += ASCII[randint(0,ASCII.__len__()-1)]
+
+        if not used_values or (used_values and not output in used_values):
+            return output
 
 
 def fingerprint_xml(tree):
