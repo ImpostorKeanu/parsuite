@@ -6,6 +6,7 @@ from multiprocessing import Pool
 import argparse
 import os
 import re
+from sys import stdout
 from time import sleep
 
 help = '''Remove lines found in bad files from lines found in good
@@ -24,8 +25,8 @@ args = [
         help='Lines that will be matchedby bad lines and removed'
     ),
     Argument('--output-file','-of',
-        required=False,
-        help='File to write output.'
+        default=stdout,
+        help='File to write output. Default: stdout'
     ),
 ]
 
@@ -65,9 +66,13 @@ def parse(bad_files=None, good_files=None, output_file=None,
     # WRITE GOOD LINES TO DISK
     # ========================
 
-    with open(output_file,'w') as outfile:
+    if output_file != stdout:
+        output_file = open(output_file)
 
-        for line in good_lines:
-            outfile.write(line+'\n')
+    for line in good_lines:
+        output_file.write(line+'\n')
+
+    if output_file != stdout:
+        output_file.close()
 
     return 0
