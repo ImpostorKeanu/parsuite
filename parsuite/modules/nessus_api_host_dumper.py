@@ -10,13 +10,16 @@ from pprint import pprint
 from os import chdir
 from pathlib import Path
 from getpass import getpass
+import pdb
 
-help='Expand a series of IPv4/6 ranges into addresses.'
-
+help='''Extract affected hosts from the Nessus REST API. Useful in
+situations when running a large scan or you don't want to deal with
+exporting the .nessus file for use with the `xml_dumper` module.
+'''
 
 args = [
     Argument('--url','-u',
-        required=True,
+        default='',
         help='URL of Nessus server'),
     Argument('--username','-un',
         default='',
@@ -24,10 +27,10 @@ args = [
     Argument('--password','-p',
         default='',
         help='Password for authentication'),
-    Argument('--severities','-sv',
+    Argument('--severities','-svs',
         nargs='+',
-        default=['low','medium','critical','high'],
-        choices=['low','medium','critical','high'],
+        default=['low','medium','critical','high','info'],
+        choices=['low','medium','critical','high','info'],
         help='Severeties to dump'),
     Argument('--scan-names','-sns',
         default=[],
@@ -96,7 +99,20 @@ class Scanner(ness6rest.Scanner):
         # NORMALIZE THE VULNERABILITY NAME
         # ================================
 
-        plugin_name = self.res['info']['plugindescription']['pluginname']
+        ai = additional_information = ''
+        pd = plugin_description = self.res['info']['plugindescription']
+
+        plugin_name = plugin_description['pluginname']
+        ai += f'# Plugin Name: {plugin_name}\n'
+        ai += '# Plugin ID: ' + \
+                plugin_description['pluginattributes'] \
+                ['plugin_information']['plugin_id'].__str__()+'\n'
+        ai += '# Severity: ' + \
+                Severity.lookup(plugin_description['severity']).upper()+'\n'
+        ai += '# Description:\n\n' + \
+                plugin_description['pluginattributes']['description'] + \
+                '\n\n'
+
         plugin_name = re.sub('_{2,}','_',
                 re.sub('\W','_',plugin_name)
             ).strip('_').lower()
@@ -129,22 +145,22 @@ class Scanner(ness6rest.Scanner):
                 'severity':Severity.lookup(output['severity']),
                 'hostnames':hostnames,'sockets':sockets,
                 'network_sockets':network_sockets,
-                'app_sockets':app_sockets,'plugin_id':plugin_id}
+                'app_sockets':app_sockets,'plugin_id':plugin_id,
+                'additional_information':ai}
 
 
 SEVS = SEVERITIES = [Severity(k,v) for k,v in 
         {0:'info',1:'low',2:'medium',3:'high',4:'critical'}.items()]
+            
+def write_lines(filename,lines):
+    with open(filename,'w+') as outfile:
+        for line in lines:
+            outfile.write(line+'\n')
 
 def parse(url=None,username=None,password=None,severities=None,
         list_scans=False,scan_names=[],insecure=False,
         output_directory='', *args, **kwargs):
-
-    if not username:
-        username = input('Nessus Username: ')
-
-    if not password:
-        password = getpass('Password: ')
-
+    
     # ========================
     # PREPARE OUTPUT DIRECTORY
     # ========================
@@ -152,6 +168,22 @@ def parse(url=None,username=None,password=None,severities=None,
     root = Path(output_directory)
     if root.exists():
         raise Exception('Output directory already exists')
+
+    # ============================
+    # GET URL & Nessus Credentials
+    # ============================
+
+    if not url:
+        url = input('Nessus URL: ')
+
+    esprint('Getting user credentials...')
+    print('\n\n',end='')
+    if not username:
+        username = input('Nessus Username: ')
+
+    if not password:
+        password = getpass('Password: ')
+    print('\n\n')
 
     root.mkdir()
     root = str(Path.cwd())+'/'+str(root)
@@ -175,95 +207,99 @@ def parse(url=None,username=None,password=None,severities=None,
         for s in scanner.scan_names():
             print(s+'\n')
         return 0
-    else:
-        esprint(f'Attempting to dump hosts from {", ".join(scan_names)}')
 
-        report = {}
+    # ======================
+    # START EXTRACTING HOSTS
+    # ======================
 
-        snames = scanner.scan_names()
+    esprint(f'Attempting to dump hosts from {", ".join(scan_names)}')
 
-        for scan_name in scan_names:
+    report = {}
 
-            if scan_name not in snames:
-                esprint(f'Unknown scan name: {scan_name}')
-                continue
-            else:
-                esprint(f'Processing: {scan_name}')
+    snames = scanner.scan_names()
 
-            # ================
-            # GET SCAN DETAILS
-            # ================
+    for scan_name in scan_names:
 
-            scanner.scan_details(scan_name)
-            host_ids = []
+        if scan_name not in snames:
+            esprint(f'Unknown scan name: {scan_name}')
+            continue
+        else:
+            esprint(f'Processing: {scan_name}')
 
-            # ================================================
-            # KEEP HOSTS ONLY IF THEY HAVE VULNS OF A SEVERITY
-            # ================================================
+        # ================
+        # GET SCAN DETAILS
+        # ================
 
-            esprint(f'\tProcessing scan hosts')
-            for host in scanner.res['hosts']:
+        scanner.scan_details(scan_name)
+        host_ids = []
 
-                for sev in severities:
-                    if host[sev.severity]:
-                        host_ids.append(host['host_id'])
-                        break
+        # ================================================
+        # KEEP HOSTS ONLY IF THEY HAVE VULNS OF A SEVERITY
+        # ================================================
 
-            # ======================================
-            # GET A LIST OF PLUGIN IDS FROM HOST IDS
-            # ======================================
+        esprint(f'\tProcessing scan hosts')
+        for host in scanner.res['hosts']:
+
+            for sev in severities:
+                if host[sev.severity]:
+                    host_ids.append(host['host_id'])
+                    break
+
+        # ======================================
+        # GET A LIST OF PLUGIN IDS FROM HOST IDS
+        # ======================================
+        
+        esprint('\tProcessing scan plugins (this may take some time)')
+        plugin_ids = []
+        for host_id in host_ids:
             
-            esprint('\tProcessing scan plugins')
-            plugin_ids = []
-            for host_id in host_ids:
-                
-                scanner.get_host_details(scanner.scan_id,host_id)
+            scanner.get_host_details(scanner.scan_id,host_id)
 
-                host = scanner.res
-                for vuln in host['vulnerabilities']:
+            host = scanner.res
+            for vuln in host['vulnerabilities']:
 
-                    if not vuln['severity'] in severities:
-                        continue
+                if not vuln['severity'] in severities:
+                    continue
 
-                    if vuln['plugin_id'] not in plugin_ids:
-                        plugin_ids.append(vuln['plugin_id'])
+                if vuln['plugin_id'] not in plugin_ids:
+                    plugin_ids.append(vuln['plugin_id'])
 
-            # ============================
-            # GET AFFECTED HOSTS BY PLUGIN
-            # ============================
+        # ============================
+        # GET AFFECTED HOSTS BY PLUGIN
+        # ============================
 
-            def write_lines(filename,lines):
-                with open(filename,'w') as outfile:
-                    for line in lines:
-                        outfile.write(line+'\n')
 
-            esprint('\tProcessing target plugin ids')
-            for id in plugin_ids:
-                output = scanner.plugin_output_to_hosts(id)
+        esprint('\tProcessing target plugin ids')
+        for id in plugin_ids:
+            output = scanner.plugin_output_to_hosts(id)
 
-                cp = Path(output['severity'])
-                if not cp.exists(): cp.mkdir()
-                chdir(cp)
+            cp = Path(output['severity'])
+            if not cp.exists(): cp.mkdir()
+            chdir(cp)
 
-                cp = Path(output['plugin_name'])
-                if not cp.exists(): cp.mkdir()
-                chdir(cp)
+            cp = Path(output['plugin_name'])
+            if not cp.exists(): cp.mkdir()
+            chdir(cp)
 
-                esprint(f'\t\tWriting: <{output["severity"]}> {output["plugin_name"][:50]}')
+            esprint(f'\t\tWriting: <{output["severity"]}> {output["plugin_name"][:50]}')
 
-                if output['hostnames']:
-                    write_lines('hostnames',output['hostnames'])
+            if output['additional_information']:
+                write_lines('additional_information',
+                        [output['additional_information']])
 
-                if output['sockets']:
-                    write_lines('sockets',output['sockets'])
+            if output['hostnames']:
+                write_lines('hostnames',output['hostnames'])
 
-                if output['network_sockets']:
-                    write_lines('network_sockets',output['network_sockets'])
+            if output['sockets']:
+                write_lines('sockets',output['sockets'])
 
-                if output['app_sockets']:
-                    write_lines('app_sockets',output['app_sockets'])
+            if output['network_sockets']:
+                write_lines('network_sockets',output['network_sockets'])
 
-                chdir(root)
+            if output['app_sockets']:
+                write_lines('app_sockets',output['app_sockets'])
+
+            chdir(root)
 
     return 0
 
