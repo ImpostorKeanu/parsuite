@@ -10,7 +10,7 @@ from pprint import pprint
 from os import chdir
 from pathlib import Path
 from getpass import getpass
-import pdb
+from termcolor import colored
 
 help='''Extract affected hosts from the Nessus REST API. Useful in
 situations when running a large scan or you don't want to deal with
@@ -46,6 +46,9 @@ args = [
         required=True,
         help='Directory where output should be written'),
 ]
+
+COLORS = {'info':'blue','low':'green','medium':'yellow','high':'red',
+        'critical':'magenta'}
 
 class Severity:
 
@@ -153,7 +156,7 @@ SEVS = SEVERITIES = [Severity(k,v) for k,v in
         {0:'info',1:'low',2:'medium',3:'high',4:'critical'}.items()]
             
 def write_lines(filename,lines):
-    with open(filename,'w+') as outfile:
+    with open(filename,'a+') as outfile:
         for line in lines:
             outfile.write(line+'\n')
 
@@ -161,13 +164,6 @@ def parse(url=None,username=None,password=None,severities=None,
         list_scans=False,scan_names=[],insecure=False,
         output_directory='', *args, **kwargs):
     
-    # ========================
-    # PREPARE OUTPUT DIRECTORY
-    # ========================
-
-    root = Path(output_directory)
-    if root.exists():
-        raise Exception('Output directory already exists')
 
     # ============================
     # GET URL & Nessus Credentials
@@ -184,20 +180,14 @@ def parse(url=None,username=None,password=None,severities=None,
     if not password:
         password = getpass('Password: ')
     print('\n\n')
-
-    root.mkdir()
-    root = str(Path.cwd())+'/'+str(root)
-    chdir(root)
-
-    severities = [s for s in SEVS if s in severities]
-
+    
     # =====================
     # AUTHENTICATE THE USER
     # =====================
 
     scanner = Scanner(url=url,login=username,password=password,
             insecure=insecure)
-
+    
     # =====================
     # LIST SCANS IF DESIRED
     # =====================
@@ -205,8 +195,23 @@ def parse(url=None,username=None,password=None,severities=None,
     if list_scans:
         esprint('Listing scans by name:\n')
         for s in scanner.scan_names():
-            print(s+'\n')
+            print('- '+s)
+
         return 0
+
+    # ========================
+    # PREPARE OUTPUT DIRECTORY
+    # ========================
+
+    root = Path(output_directory)
+    if root.exists():
+        raise Exception('Output directory already exists')
+
+    root.mkdir()
+    root = str(Path.cwd())+'/'+str(root)
+    chdir(root)
+
+    severities = [s for s in SEVS if s in severities]
 
     # ======================
     # START EXTRACTING HOSTS
@@ -268,22 +273,30 @@ def parse(url=None,username=None,password=None,severities=None,
         # GET AFFECTED HOSTS BY PLUGIN
         # ============================
 
-
         esprint('\tProcessing target plugin ids')
         for id in plugin_ids:
             output = scanner.plugin_output_to_hosts(id)
 
             cp = Path(output['severity'])
+
+
             if not cp.exists(): cp.mkdir()
             chdir(cp)
 
             cp = Path(output['plugin_name'])
-            if not cp.exists(): cp.mkdir()
+            if not cp.exists():
+                cp.mkdir()
+                new = True
+            else:
+                new = False
             chdir(cp)
+            
+            col = colored(output['severity'].upper(),
+                COLORS[output['severity']])
 
-            esprint(f'\t\tWriting: <{output["severity"]}> {output["plugin_name"][:50]}')
+            esprint(f'\t\t[{col}] {output["plugin_name"][:50]}')
 
-            if output['additional_information']:
+            if output['additional_information'] and new:
                 write_lines('additional_information',
                         [output['additional_information']])
 
