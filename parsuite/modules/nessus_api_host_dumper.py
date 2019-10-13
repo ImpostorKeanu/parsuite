@@ -237,6 +237,7 @@ def parse(url=None,username=None,password=None,severities=None,
 
         scanner.scan_details(scan_name)
         host_ids = []
+        targets = scanner.res['info']['targets'].split(',')
 
         # ================================================
         # KEEP HOSTS ONLY IF THEY HAVE VULNS OF A SEVERITY
@@ -313,6 +314,9 @@ def parse(url=None,username=None,password=None,severities=None,
                 write_lines('app_sockets',output['app_sockets'])
 
             chdir(root)
+
+        if targets:
+            write_lines('targets.txt',targets)
 
     return 0
 
