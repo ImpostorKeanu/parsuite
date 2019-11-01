@@ -44,8 +44,9 @@ args = [
         in the CSV such that each column can be identified.
         '''),
     Argument('--out-csv','-o',
+        default=stdout,
         help='''Output file that will receive output records.
-        '''),
+         default=stdout'''),
     Argument('--out-mode','-om',
         default='overwrite',
         choices=['overwrite','append'],
@@ -141,7 +142,8 @@ def parse(text_templates,csv_file,random_length,out_csv,
     if out_mode == 'overwrite': out_mode = 'w'
     else: out_mode = 'a'
 
-    outfile = open(out_csv, out_mode)
+    if out_csv != stdout: outfile = open(out_csv, out_mode)
+    else: outfile = out_csv
     csv_writer = csv.writer(outfile)
 
     try:
