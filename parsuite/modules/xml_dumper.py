@@ -101,7 +101,7 @@ def parse(input_files, format, all_addresses, fqdns,
     # ======================
 
     if http_links:
-        sprint('Parsing HTTP links')
+        esprint('Parsing HTTP links')
         # TODO: Update this when lxml has been normalized across all parser
         import lxml.etree as ET
         links = []
