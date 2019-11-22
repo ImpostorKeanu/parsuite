@@ -17,7 +17,7 @@ class Offsets(dict):
 
         return None
 
-TRANSFORMS = ['b64_encode','url_encode']
+TRANSFORMS = ['b64_encode','url_encode','lowercase_encode']
 
 help ='''Accept a series of text templates and update their
 values. It ingests a CSV file, making the values of each field
@@ -35,8 +35,13 @@ args = [
         Generate random values by inserting this scheme: <<<:RAND:>>>.
         Additionally, If the same random value needs to be shared between
         each template, suffix the random injection scheme with an integer
-        value: <<<:RAND1:>>>.
-        '''),
+        value: <<<:RAND1:>>>. Additionally, you can apply a single 'encoding'
+        to any value as well by injecting a sequence in the form of:
+        <<<:{field_name}:---{encoding}>>>. For instance, you could make sure
+        that all instances of the first_name field are lower cased by using
+        the following template: <<<:first_name:---lowercase_encode>>>. The
+        following encoders are currently supported:
+        ''' + (', '.join(TRANSFORMS))),
     Argument('--csv-file','-csv',
         required=True,
         help='''CSV file containing values that will be placed in
@@ -55,7 +60,7 @@ args = [
         default=10,
         type=int,
         help='''Length of random values generated.
-        Default: %(default)s''')
+        Default: %(default)s'''),
 ]
 
 USED_RANDOMS = UR = []
@@ -63,6 +68,10 @@ USED_RANDOMS = UR = []
 def b64_encode(val):
 
     return b64encode(bytes(val,'utf8')).decode('utf8')
+
+def lowercase_encode(val):
+
+    return val.__str__().lower()
 
 def encode(val, encoder=None):
 
