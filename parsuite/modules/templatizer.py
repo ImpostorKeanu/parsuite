@@ -102,15 +102,16 @@ def parse(text_templates,csv_file,random_length,out_csv,
         csv_lines = [l for l in csv.reader(csvfile)]
         headers = csv_lines.pop(0)
     
-    STRAND_RE = 'RAND([0-9]+)?'
 
     # ===============================
     # BUILD FIELD REGULAR EXPRESSIONS
     # ===============================
-
-    FIELD_RE = '<{3}:('+'|'.join(headers)
-    FIELD_RE += f'|{STRAND_RE}):'
-    FIELD_RE += '(---('+'|'.join(TRANSFORMS)+'))?>{3}'
+    
+    STRAND_RE = 'RAND([0-9]+)?'
+    FIELD_RE = '<{3}:('+'|'.join(headers)              # Adding headers to RE
+    FIELD_RE += f'|{STRAND_RE})'                       # Adding random RE
+    FIELD_RE += '(\[([0-9]|:)+\])?:'                   # Adding slice range RE
+    FIELD_RE += '('+'|'.join(TRANSFORMS)+')?>{3}' # Adding transforms
     FIELD_RE = re.compile(FIELD_RE)
 
     # ======================================
@@ -163,15 +164,19 @@ def parse(text_templates,csv_file,random_length,out_csv,
             rands = {}
             out_fields = []
             for template in text_templates:
+
+                otemp = template
     
                 replaced = []
                 for match in re.finditer(FIELD_RE,template):
-    
+
                     # ==================
                     # TRACK REPLACEMENTS
                     # ==================
-                    encoder = match.groups()[2]
-                    if encoder: encoder = encoder[3:]
+                    if match.groups()[4]:
+                        encoder = match.groups()[4]
+                    else:
+                        encoder = None
     
                     '''
                     Track which replacements have been made, assuring
@@ -225,15 +230,56 @@ def parse(text_templates,csv_file,random_length,out_csv,
                     # ==============================
                     # IDENTIFY AND HANDLE CSV FIELDS
                     # ==============================
+                    val = row[offsets[match.groups()[0]]]
+                    if not val:
+                        esprint('Empty value detected. Continuing...')
+                        continue
+
+                    if match.groups()[2]:
+
+                        srng = match.groups()[2][1:-1]
+                        try:
+                            sgroups = list(
+                                    re.match('([0-9])?(:)?([0-9])?',
+                                    srng).groups()
+                            )
+                        except Exception as e:
+                            esprint('Failed to parse range from template')
+                            raise e
+
+                        if sgroups[0]: sgroups[0] = int(sgroups[0])
+                        if sgroups[2]: sgroups[2] = int(sgroups[2])
+
+                        try:
+
+                            if sgroups[0] and sgroups[1] and \
+                                    sgroups[2]:
+                                val = val[sgroups[0]:sgroups[2]]
+                            elif sgroups[0] and sgroups[1]:
+                                val = val[sgroups[0]:]
+                            elif sgroups[1] and sgroups[2]:
+                                val = val[:sgroups[2]]
+                            elif sgroups[0]:
+                                val = val[0]
+
+                        except Exception as e:
+
+                            esprint(
+                                'Failed to parse range for field: ' \
+                                f'{field} ({val})'
+                            )
     
+                            continue
+
                     template = template.replace(field,
-                            encode(row[offsets[match.groups()[0]]],encoder)
+                            encode(val,encoder)
                     )
+                
+                if template == otemp: continue
 
                 out_fields.append(template)
 
             csv_writer.writerow(out_fields)
-
 
     finally:
 
