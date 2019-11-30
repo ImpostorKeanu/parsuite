@@ -6,13 +6,11 @@ import re
 from random import randint
 from string import ascii_letters as ASCII
 
-help='''Accept a link as input and replace a template with
+help='''Accept a string as input and replace a template with
 random values.
 '''
-
-
 args = [
-    Argument('--link','-l',
+    Argument('--string','-s',
         required=True,
         help='''Link to randomize.
         '''),
@@ -21,9 +19,9 @@ args = [
         help='''Template that will be randomized.
         Default: %(default)s'''),
     Argument('--count','-c',
-        required=True,
+        default=1,
         type=int,
-        help='''Number of links to generate.
+        help='''Number of strings to generate.
         '''
     ),
     Argument('--random-length','-rl',
@@ -50,13 +48,13 @@ def gen_rand(length):
 
         if output not in USED_VALUES: return output
 
-def parse(link,injection_template,count,random_length,
+def parse(string,injection_template,count,random_length,
         *args, **kwargs):
 
-    esprint(f'Link Template: {link}')
+    esprint(f'String Template: {string}')
 
     template_re = re.escape(injection_template)
-    rand_count = re.findall(template_re,link)
+    rand_count = re.findall(template_re,string)
 
     if not rand_count:
         raise ValueError(
@@ -67,14 +65,14 @@ def parse(link,injection_template,count,random_length,
 
     for ind in range(0,count):
 
-        ilink = link
+        istring = string
         vals = []
         for n in range(0,rand_count):
             vals.append(gen_rand(random_length))
         for v in vals:
-            ilink = re.sub(template_re,v,ilink,count=1)
+            istring = re.sub(template_re,v,istring,count=1)
 
 
-        print(ilink)
+        print(istring)
 
     return 0

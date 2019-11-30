@@ -40,9 +40,9 @@ args = [
         suffix the random injection scheme with an integer value: 
         <<<:RAND1:>>>. Additionally, you can apply a single 'encoding'
         to any value as well by injecting a sequence in the form of:
-        <<<:{field_name}:---{encoding}>>>. For instance, you could make sure
+        <<<:{field_name}:{encoding}>>>. For instance, you could make sure
         that all instances of the first_name field are lower cased by using
-        the following template: <<<:first_name:---lowercase_encode>>>. The
+        the following template: <<<:first_name:lowercase_encode>>>. The
         following encoders are currently supported:
         ''' + (', '.join(TRANSFORMS))),
     Argument('--csv-file','-csv',
