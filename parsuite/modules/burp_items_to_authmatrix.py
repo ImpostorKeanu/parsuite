@@ -132,6 +132,7 @@ def parse(input_file, pretty_print, **kwargs):
                 {
                     'name':username.text,
                     'index':counter,
+                    'tableRow':counter,
                     'cookiesBase64':cookies,
                     'headersBase64':[],
                     'roles':user_roles
