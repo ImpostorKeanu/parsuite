@@ -6,6 +6,8 @@ from lxml import etree as ET
 import argparse
 import os
 from sys import stdout, exit
+import pdb
+from IPython import embed
 
 
 help = '''Input an XML file containing Burp items and dump each 
@@ -15,15 +17,31 @@ args = [
     DefaultArguments.input_file,
     Argument('--output-directory', '-od', required=True,
         help='Output directory.'),
+    Argument('--huge-tree',
+        action='store_true',
+        help='Enable parsing of large files'),
 ]
 
-def parse(input_file=None, output_directory=None, **kwargs):
+def parse(input_file=None, output_directory=None, 
+        huge_tree=False, **kwargs):
 
     esprint(f'Parsing input file: {input_file}')
     
 
     # parse the input file as HTML
-    tree = ET.parse(input_file)
+    parser = ET.XMLParser(huge_tree=huge_tree)
+
+    try:
+        tree = ET.parse(input_file,parser=parser)
+    except Exception as e:
+        if e.msg.find('Huge input lookup') > 0:
+            esprint(
+                '\nWARNING: ' \
+                'Large input file selected. Include --huge-tree ' \
+                'to continue parsing the target file. Exiting.',
+                suf='[!]'
+            )
+            exit()
     
     bo = base_output_path = helpers.handle_output_directory(
         output_directory
