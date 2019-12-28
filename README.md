@@ -1,12 +1,11 @@
 # parsuite
 
-Simple parser framework. This was written super fast because I'm super impatient
-when it comes to parsing stuff out of text files in various fomrats -- the whole
-purpose of this little tool.
+Simple modular framework to support quick creation of file parsers in Python. See
+the wiki page for information on creating modules.
 
 # A Note on Usage
 
-Almost all irrelevant output, such as `[+] Alerting on some event`, is printed to 
+Irrelevant output, such as `[+] Alerting on some event`, is printed to 
 `stderr`. When an output file isn't desired, you can always clean up the output by
 sending `stderr` to the bitbucket and use `xclip` to catch the output from `stdout`,
 .e.g `python3.7 ./parsuite.py nmap_top_port_dumper -t 100 2>/dev/null | xclip -sel clip`.
