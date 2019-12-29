@@ -540,7 +540,10 @@ class Host:
                 if scheme_layer == 'transport':
                     scheme = transport_protocol+'://'
                 elif scheme_layer == 'application' and port.service:
-                    scheme = port.service.name+'://'
+                    if port.service.name == 'http' and port.service.tunnel in ['ssl','tls']:
+                        scheme = port.service.name+'s://'
+                    else:
+                        scheme = port.service.name+'://'
                 else:
                     scheme = ''
                 
