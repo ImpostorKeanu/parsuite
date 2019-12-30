@@ -3,6 +3,7 @@
 from re import search
 from sys import exit
 from parsuite import decorators
+import pdb
 
 ve = decorators.validate_lxml_module
 
@@ -74,15 +75,16 @@ class Service:
     >
     '''
 
-    ATTRIBUTES = ['name','conf','method','version','product',
+    ATTRIBUTES = ['name','conf', 'extrainfo', 'method','version','product',
         'tunnel','proto','rpcnum','hostname','ostype','devicetype']
 
-    def __init__(self,name,conf=None,method=None,version=None,
-        product=None,tunnel=None,proto=None,rpcnum=None,hostname=None,
-        ostype=None,devicetype=None):
+    def __init__(self,name,conf=None,extrainfo=None,method=None,
+            version=None,product=None,tunnel=None,proto=None,
+            rpcnum=None,hostname=None,ostype=None,devicetype=None):
 
         self.name = name
         self.conf = conf
+        self.extrainfo = extrainfo
         self.method = method
         self.version = version
         self.product = product
@@ -223,15 +225,26 @@ class PortList(list):
             # TODO: Finish negotiation of attribute of attr object
             # for a service, should be `name`
             if value_attr:
-                return PortList([p for p in self if search(
-                    value,p.__getattribute__(attr) \
+
+                ports = PortList()
+                for port in self:
+
+                    attr_value = port.__getattribute__(attr) \
                         .__getattribute__(value_attr)
-                    )]
-                )
+
+                    if not attr_value or not search(
+                            value,attr_value):
+                        continue
+
+                    ports.append(port)
+
             else:
-                return PortList([p for p in self if
+
+                ports = PortList([p for p in self if
                     search(value,p.__getattribute__(attr))]
                 )
+
+            return ports
 
 
 
@@ -321,8 +334,40 @@ class Host:
     def get_ports(self, *args, **kwargs):
         return [port.number for port in self.ports]
 
-    def to_ports(self, *args, **kwargs):
-        return self.get_ports()
+    def to_ports(self, service_search=[], sreg=False,
+            *args, **kwargs):
+        '''Translate the host to a list of port numbers.
+        '''
+
+        if not service_search:
+            return self.get_ports()
+        
+        ports = PortList()
+        for service in service_search:
+
+            # ===================
+            # HANDLE REGEX SEARCH
+            # ===================
+
+            if sreg:
+
+                ports += self.ports.get(attr='service',value=service,
+                    regexp=True,value_attr='name')
+                ports += self.ports.get(attr='service',value=service,
+                    regexp=True,value_attr='extrainfo')
+
+            # ===================
+            # HANDLE MATCH SEARCH
+            # ===================
+
+            else:
+
+                ports += self.ports.get(attr='service',value=service)
+                ports += self.ports.get('service',value=service,
+                        value_attr='extrainfo')
+
+        return [p.number for p in set(ports)]
+
 
     def get_addresses(self,fqdns=False, port_search=[], service_search=[],
             sreg=False, port_required=False, *args, **kwargs):
@@ -352,7 +397,6 @@ class Host:
             matched = False
             for service in service_search:
 
-
                 # ===================
                 # HANDLE REGEX SEARCH
                 # ===================
@@ -363,6 +407,11 @@ class Host:
                         regexp=True,value_attr='name'):
                         matched = True
                         break
+                    
+                    if self.ports.get(attr='service',value=service,
+                        regexp=True,value_attr='extrainfo'):
+                        matched = True
+                        break
 
                 # ===================
                 # HANDLE MATCH SEARCH
@@ -370,7 +419,12 @@ class Host:
 
                 else:
 
-                    if self.ports.get('service',service):
+                    if self.ports.get(attr='service',value=service):
+                        matched = True
+                        break
+
+                    if self.ports.get('service',value=service,
+                            value_attr='extrainfo'):
                         matched = True
                         break
                     
@@ -423,7 +477,7 @@ class Host:
 
     def to_sockets(self,fqdns=False,open_only=True,protocols=['tcp'],
             scheme_layer=None,mangle_functions=[],port_search=[],
-            service_search=[],sreg=None,*args,**kwargs):
+            service_search=[],sreg=None,extrainfo=False,*args,**kwargs):
         """
         Return a list of socket values derived from service objects
         associated with a given host.
@@ -492,7 +546,13 @@ class Host:
 
                         matched = False
                         for ser in service_search:
+
                             if search(ser,port.service.name):
+                                matched=True
+                                break
+
+                            if port.service.extrainfo and \
+                                    search(ser,port.service.extrainfo):
                                 matched=True
                                 break
 
@@ -503,9 +563,15 @@ class Host:
                 # =======================
 
                 if scheme_layer == 'transport':
-                    scheme = transport_protocol+'://'
+                    if port.service.tunnel in ['ssl','tls']:
+                        scheme = port.service.tunnel+'/'+transport_protocol+'://'
+                    else:
+                        scheme = transport_protocol+'://'
                 elif scheme_layer == 'application' and port.service:
-                    scheme = port.service.name+'://'
+                    if port.service.name == 'http' and port.service.tunnel in ['ssl','tls']:
+                        scheme = port.service.name+'s://'
+                    else:
+                        scheme = port.service.name+'://'
                 else:
                     scheme = ''
                 
@@ -513,8 +579,20 @@ class Host:
                 # FORMAT THE ADDRESSES
                 # ====================
 
+                greatest_length = 0
                 for address in addresses:
+
+                    # Format the address
                     addr = f'{scheme}{address}:{port.number}'
+
+                    # Add extrainfo when requested
+                    if extrainfo and port.service.extrainfo:
+                        if port.service.product:
+                            addr += f',{port.service.product}; '\
+                                    f'{port.service.extrainfo};'
+                        else:
+                            addr += f',{port.service.extrainfo};'
+
                     for func in mangle_functions:
                         addr = func(addr)
                     output.append(addr)

@@ -64,6 +64,13 @@ args = [
         help='''Treat service searches as individual regexes.'''
     ),
     Argument(
+        '--extrainfo','-e',
+        action='store_true',
+        help='''Display extra info, such as service versions.
+        Supported output formats: URI, Sockets.
+        '''
+    ),
+    Argument(
         '--service-search',
         nargs='+',
         help='''Search services for a string. Default: %(default)s
@@ -90,9 +97,9 @@ PLURAL_MAP = {'address':'addresses','socket':'sockets','uri':'uris',
         'port':'ports','san_dns_name':'san_dns_names'}
 
 def parse(input_files, format, all_addresses, fqdns, 
-        port_required, port_search, service_search,
-        protocols, transport_layer,
-        delimiter, http_links, sreg, *args, **kwargs):
+        port_required, port_search, service_search, protocols,
+        transport_layer, delimiter, http_links, sreg, extrainfo,
+        *args, **kwargs):
 
     format = PLURAL_MAP[format]
 
@@ -178,6 +185,7 @@ def parse(input_files, format, all_addresses, fqdns,
             port_search=port_search,
             service_search=service_search,
             sreg=sreg,
+            extrainfo=extrainfo,
         )
     
     # Format and dump the output
