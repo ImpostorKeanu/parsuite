@@ -452,7 +452,7 @@ class Host:
 
     def to_sockets(self,fqdns=False,open_only=True,protocols=['tcp'],
             scheme_layer=None,mangle_functions=[],port_search=[],
-            service_search=[],sreg=None,*args,**kwargs):
+            service_search=[],sreg=None,extrainfo=False,*args,**kwargs):
         """
         Return a list of socket values derived from service objects
         associated with a given host.
@@ -538,7 +538,10 @@ class Host:
                 # =======================
 
                 if scheme_layer == 'transport':
-                    scheme = transport_protocol+'://'
+                    if port.service.tunnel in ['ssl','tls']:
+                        scheme = port.service.tunnel+'/'+transport_protocol+'://'
+                    else:
+                        scheme = transport_protocol+'://'
                 elif scheme_layer == 'application' and port.service:
                     if port.service.name == 'http' and port.service.tunnel in ['ssl','tls']:
                         scheme = port.service.name+'s://'
@@ -551,8 +554,16 @@ class Host:
                 # FORMAT THE ADDRESSES
                 # ====================
 
+                greatest_length = 0
                 for address in addresses:
+
+                    # Format the address
                     addr = f'{scheme}{address}:{port.number}'
+
+                    # Add extrainfo when requested
+                    if extrainfo and port.service.extrainfo:
+                        addr += f',{port.service.extrainfo}'
+
                     for func in mangle_functions:
                         addr = func(addr)
                     output.append(addr)
