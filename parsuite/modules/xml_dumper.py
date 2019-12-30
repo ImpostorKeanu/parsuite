@@ -27,7 +27,7 @@ args = [
     Argument(
         '--format','-f',
         default='address',
-        choices=['socket','address','uri','port'],
+        choices=['socket','address','uri','port','san_dns_name'],
         help='''Output format. Default: %(default)s'''),
     Argument(
         '--transport-layer','-tl',
@@ -87,7 +87,7 @@ args = [
 ]
 
 PLURAL_MAP = {'address':'addresses','socket':'sockets','uri':'uris',
-        'port':'ports'}
+        'port':'ports','san_dns_name':'san_dns_names'}
 
 def parse(input_files, format, all_addresses, fqdns, 
         port_required, port_search, service_search,

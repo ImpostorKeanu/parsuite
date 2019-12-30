@@ -40,6 +40,15 @@ class Script:
         self.id = id
         self.output = output
 
+    @property
+    def san_dns_names(self):
+        if not self.output: return []
+        dns_names = []
+        for line in self.output.split('\n'):
+            if not line.startswith('Subject Alternative Name'): continue
+            dns_names += ' '.join(line.split('DNS:')[1:]).split(', ')
+        return dns_names
+
 class Service:
     '''A basic representation of an Nmap service.
 
@@ -393,8 +402,24 @@ class Host:
 
         return sorted(addresses)
 
+
     def to_addresses(self,*args,**kwargs):
         return self.get_addresses(*args,**kwargs)
+
+    def to_san_dns_names(self,fqdns=False,open_only=True,protocols=['tcp'],
+            scheme_layer=None,mangle_functions=[],port_search=[],
+            service_search=[],sreg=None,*args,**kwargs):
+
+        output = []
+        for transport_protocol in protocols:
+            for port_number,port in self \
+                    .__getattribute__(transport_protocol+'_ports') \
+                    .items():
+                        for script in port.scripts:
+                            output += [s.strip() for s
+                                    in script.san_dns_names]
+
+        return list(set(output))
 
     def to_sockets(self,fqdns=False,open_only=True,protocols=['tcp'],
             scheme_layer=None,mangle_functions=[],port_search=[],
