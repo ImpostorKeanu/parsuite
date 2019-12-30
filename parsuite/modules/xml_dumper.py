@@ -66,7 +66,9 @@ args = [
     Argument(
         '--extrainfo','-e',
         action='store_true',
-        help='''Display extra info, such as service versions.'''
+        help='''Display extra info, such as service versions.
+        Supported output formats: URI, Sockets.
+        '''
     ),
     Argument(
         '--service-search',
