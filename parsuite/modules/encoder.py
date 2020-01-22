@@ -6,12 +6,31 @@ import re
 from base64 import b64encode
 from pathlib import Path
 
-help='''Base64 encode a series of values or contents of files. WARNING:
+class Encoder:
+
+    def b64(value):
+        return b64encode(bytes(value,'utf-8')).decode('utf-8')
+
+    def url(value):
+        pass
+
+    def all_url(value):
+        return ''.join(
+                ['%{:x}'.format(byte) for byte in bytes(value,'utf-8')]
+        )
+
+help='''Encode a series of values or contents of files. WARNING:
  files are slurped and encoded as a whole.
 '''
 
-
 args = [
+    Argument('--algorithms','-a',
+        required=True,
+        nargs='+',
+        choices=[k for k in Encoder.__dict__.keys() if not k.startswith('_')],
+        help='''Encode each value with a series of algorithms.
+        '''
+    ),
     Argument('--values','-vs',
         required=True,
         nargs='+',
@@ -25,11 +44,7 @@ args = [
         
 ]
 
-def encode(v):
-
-    return b64encode(bytes(v,'utf-8')).decode('utf-8')
-
-def parse(values,delimiter,*args, **kwargs):
+def parse(algorithms,values,delimiter,*args, **kwargs):
 
     ind = 0
 
@@ -38,13 +53,19 @@ def parse(values,delimiter,*args, **kwargs):
         if Path(values[ind]).exists():
             esprint(f'Encoding file: {values[ind]}')
             with open(values[ind]) as infile:
-                values[ind] = encode(infile.read())
+
+                for algo in algorithms:
+                    encode = Encoder.__dict__[algo]
+                    values[ind] = encode(infile.read())
         else:
+
             esprint(f'Encoding value: {values[ind]}')
-            values[ind] = encode(values[ind])
+
+            for algo in algorithms:
+                encode = Encoder.__dict__[algo]
+                values[ind] = encode(values[ind])
 
         ind += 1
-
 
     if not delimiter:
 
