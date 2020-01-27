@@ -8,6 +8,8 @@ import os
 from sys import stdout, exit
 import pdb
 from IPython import embed
+import jsbeautifier
+import re
 
 
 help = '''Input an XML file containing Burp items and dump each 
@@ -17,16 +19,30 @@ args = [
     DefaultArguments.input_file,
     Argument('--output-directory', '-od', required=True,
         help='Output directory.'),
+    Argument('--no-url',
+        action='store_true',
+        help='Suppress writing URL to file. Default: False'),
+    Argument('--no-headers',
+        action='store_true',
+        help='Suppress writing headers to file. Default: False'),
+    Argument('--no-beautify-js',
+        action='store_true',
+        help='Suppress JS beautification.. Default: False'),
     Argument('--huge-tree',
         action='store_true',
-        help='Enable parsing of large files'),
+        help='Enable parsing of large files. Default: False'),
 ]
 
-def parse(input_file=None, output_directory=None, 
-        huge_tree=False, **kwargs):
+def parse(input_file=None, no_url=False, output_directory=None,
+        no_headers=False, no_beautify_js=False, huge_tree=False,
+        **kwargs):
+
+    # Invert flags
+    write_url = (not no_url)
+    write_headers = (not no_headers)
+    beautify_js = (not no_beautify_js)
 
     esprint(f'Parsing input file: {input_file}')
-    
 
     # parse the input file as HTML
     parser = ET.XMLParser(huge_tree=huge_tree)
@@ -63,34 +79,62 @@ def parse(input_file=None, output_directory=None,
 
         with open(str(counter)+'.req','w') as outfile:
 
-            outfile.write(
-                f'URL: {item.url}\r\n{item.request.firstline}\r\n'
-            )
-
-            for k,v in item.request.headers.items():
+            if write_url:
                 outfile.write(
-                    f'{k}: {v}\r\n'
+                    f'URL: {item.url}\n{item.request.firstline}\n'
                 )
 
-            outfile.write('\r\n\r\n')
+            for k,v in item.request.headers.items():
+
+                if beautify_js \
+                        and re.match('content-type',k,re.I) \
+                        and re.search('json',v,re.I):
+                    try:
+                        item.request.sbody = jsbeautifier.beautify(item.request.sbody)
+                    except Exception as e:
+                        esprint('Failed to beautify JSON: {e}')
+
+                if write_headers: outfile.write(f'{k}: {v}\n')
+
+            if write_headers: outfile.write('\n\n')
             outfile.write(item.request.sbody)
         
         if item.mimetype: mimetype = item.mimetype.lower()
         else: mimetype = 'no_mimetype'
 
+        # ===================
+        # HANDLE THE RESPONSE
+        # ===================
+
         with open(str(counter)+'.resp.'+mimetype,'w') as outfile:
             
-            outfile.write(
-                f'URL: {item.url}\r\n{item.response.firstline}\r\n'
-            )
-
-            for k,v in item.response.headers.items():
+            # Write the first line
+            if write_url:
                 outfile.write(
-                    f'{k} {v}\r\n'
+                    f'URL: {item.url}\n{item.response.firstline}\n'
                 )
 
-            outfile.write('\r\n\r\n')
-            outfile.write(item.response.sbody)
+            # Handle response headers
+            for k,v in item.response.headers.items():
+
+                # Beautify JavaScript/JSON content
+                if beautify_js \
+                        and re.match('content-type',k,re.I) \
+                        and re.search('java|json',v,re.I):
+                    try:
+                        item.response.sbody = jsbeautifier.beautify(item.response.sbody)
+                    except Exception as e:
+                        esprint('Failed to beautify JavaScript/JSON: {e}')
+                        pass
+
+                # Write headers to the output file
+                if write_headers: outfile.write(f'{k}: {v}\n')
+
+            # Write newlines
+            if write_headers: outfile.write('\n\n')
+
+            # Write response body to disk
+            outfile.write(item.response.sbody+'\n')
         
         counter += 1
 
