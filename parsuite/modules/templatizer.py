@@ -253,16 +253,19 @@ def parse(text_templates,csv_file,random_length,out_csv,
                         if sgroups[0]: sgroups[0] = int(sgroups[0])
                         if sgroups[2]: sgroups[2] = int(sgroups[2])
 
+                        sg0int = True if type(sgroups[0]) == int else False
+                        sg2int = True if type(sgroups[2]) == int else False
+
                         try:
 
-                            if sgroups[0] and sgroups[1] and \
-                                    sgroups[2]:
+                            if sg0int and sgroups[1] and \
+                                    sg2int:
                                 val = val[sgroups[0]:sgroups[2]]
-                            elif sgroups[0] and sgroups[1]:
+                            elif sg0int and sgroups[1]:
                                 val = val[sgroups[0]:]
-                            elif sgroups[1] and sgroups[2]:
+                            elif sgroups[1] and sg2int:
                                 val = val[:sgroups[2]]
-                            elif sgroups[0]:
+                            elif sg0int:
                                 val = val[0]
 
                         except Exception as e:
