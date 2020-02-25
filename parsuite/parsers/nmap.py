@@ -79,6 +79,10 @@ def parse_nmap(tree,require_open_ports):
         
         # Getting ports
         for eport in ehost.findall('.//port'):
+            # Initialize service attributes with a name of unknown
+            # so that even open ports without a service are returned
+            # with a uri-type prefix
+            service_attributes = {'name':'unknown'}
             port_number = eport.get('portid')
             protocol = eport.get('protocol')
         
@@ -90,14 +94,12 @@ def parse_nmap(tree,require_open_ports):
             # Get port service
             eser = eport.find('service')
             if eser != None:
-                attributes = {}
                 for attr in Service.ATTRIBUTES:
                     val = eser.get(attr)
-                    if val != None: attributes[attr]=val
+                    if val != None: service_attributes[attr]=val
 
-
-            if attributes:
-                service = Service(**attributes)
+            if service_attributes:
+                service = Service(**service_attributes)
             else:
                 service = None
             
@@ -111,7 +113,7 @@ def parse_nmap(tree,require_open_ports):
                     )
                 )
         
-               # Append the port object
+            # Append the port object
             host.append_port(
                 Port(number=port_number, protocol=protocol,
                     state=state, reason=reason, service=service,
