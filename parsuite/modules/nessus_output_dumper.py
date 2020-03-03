@@ -40,7 +40,7 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
     else:
         from termcolor import colored
         color = True
-   
+
     # build output directory
     bo = base_output_path = helpers.handle_output_directory(
         output_directory
@@ -58,13 +58,13 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
     sprint('Dumping target information (all scanned addresses)')
     with open('target_ips.txt','w') as of:
 
-        # dump all target s to disk    
+        # dump all target s to disk
         for pref in tree.findall('.//preference'):
-    
+
             name = pref.find('./name')
-    
+
             if name.text == 'TARGET':
-    
+
                 value = pref.find('./value')
                 of.write('\n'.join(value.text.split(',')))
                 break
@@ -163,7 +163,7 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
         protocols = []
         alert = True
         pid = plugin_id
-        
+
         # ==========================================================
         # EXTRACT PLUGIN IDS, PROTOCOLS, AND INITIALIZE REPORT HOSTS
         # ==========================================================
@@ -180,7 +180,7 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
                 if color:
                     rf = colored(ri.risk_factor.upper(),
                             color_lookup[ri.risk_factor])
-        
+
                     if ri.risk_factor.__len__() < 11:
                         rf += ' ' * (11-ri.risk_factor.__len__())
 
@@ -190,11 +190,11 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
                         rf += 'False'
 
                     rf += '      '
-                    
+
                 else:
-                    
+
                     rf = ri.risk_factor.upper()
-        
+
                     if ri.risk_factor.__len__() < 11:
                         rf += ' ' * (11-ri.risk_factor.__len__())
 
@@ -204,11 +204,11 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
                         rf += 'False'
 
                     rf += '      '
-                    
+
                 if pid.__len__() < pid_len:
                     pid += ' ' * (pid_len-pid.__len__())
                     pid += '    '
-    
+
                 rf += '    ' + pid
                 rf += ri.plugin_name
 
@@ -226,7 +226,7 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
                     rh.append_port(ri.port)
                 else:
                     port = ports[0]
-                    
+
             else:
 
                 rh = FromXML.report_host(parent)
@@ -248,7 +248,7 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
             fws = ','.join([fw.upper() for fw in ri.exploit_frameworks])
             suffix += f'[EXPLOIT FRAMEWORKS: {fws}]'
         finding_index[sev].append(prefix+ri.plugin_name+suffix)
-        
+
         # ================================
         # BUILD REPORT ITEM DIRECTORY NAME
         # ================================
@@ -268,7 +268,7 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
         if not Path(ri_dir).exists():
             os.mkdir(ri_dir)
         os.chdir(ri_dir)
-        
+
         # =====================
         # WRITE CONTENT TO DISK
         # =====================
@@ -291,16 +291,16 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
             try:
 
                 if plugin_outputs:
-                    
+
                     plugin_outputs_file = open(f'{protocol}_plugin_outputs.txt','w')
-                
+
                 for rhost in rhosts.values():
-    
+
                     plist = rhost.__getattribute__(protocol+'_ports')
                     if plist:
-    
+
                         for addr in rhost.to_addresses(fqdns=True):
-    
+
                             if re.match(ipv4_re,addr):
                                 ips.append(addr)
                             elif re.match(ipv6_re,addr):
@@ -309,43 +309,43 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
                                 fqdns.append(addr)
                             else:
                                 continue
-    
+
                         for number,port in plist.items():
-       
+
                             socket = None
                             fsocket = None
-    
+
                             if number > 0:
                                 ports.append(number)
-    
+
                             for ip in ips:
                                 if number > 0:
                                     socket = f'{ip}:{port.number}'
                                     sockets.append(socket)
-    
+
                             for fqdn in fqdns:
                                 if number > 0:
                                     fsocket = f'{fqdn}:{port.number}'
                                     fsockets.append(fsocket)
-    
+
                             if not socket: continue
-    
+
                             header = socket
                             if fsocket: header = header+','+fsocket+':'
                             ban = '='*header.__len__()
                             header = f'{ban}{header}{ban}'
-    
+
                             if plugin_outputs and plugin_id in port.plugin_outputs:
-       
+
                                 plugin_output = f'{header}\n\n'+'\n'.join(
                                     port.plugin_outputs[plugin_id]
                                 )
-    
+
                                 plugin_outputs_file.write('\n\n'+plugin_output)
 
             finally:
 
-                if plugin_outputs: 
+                if plugin_outputs:
                     plugin_outputs_file.close()
 
             # =====================
@@ -353,7 +353,7 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
             # =====================
 
             '''
-            
+
             IPs are now properly sorted before written to disk.
 
             1. convert each ipv4 string to an ipaddress.ip_address object
@@ -392,13 +392,13 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
             sockets = []
             for sip in sips:
                 for p in sorted(smap[sip]):
-                    s = f'{sip}:{port}'
+                    s = f'{sip}:{p}'
                     if s not in sockets: sockets.append(s)
 
             # ============
             # HANDLE PORTS
             # ============
-            
+
             ports = sorted(set(ports))
             if ports:
 
@@ -409,7 +409,7 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
             # ============
             # HANDLE FQDNS
             # ============
-            
+
             fqdns = sorted(set(fqdns))
             fsockets = sorted(set(fsockets))
 
