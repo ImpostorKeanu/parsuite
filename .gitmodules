@@ -1,0 +1,3 @@
+[submodule "parsuite/modules/parsuite_templatizer"]
+	path = parsuite/modules/parsuite_templatizer
+	url = https://github.com/arch4ngel/parsuite_templatizer
