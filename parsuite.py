@@ -31,6 +31,7 @@ if __name__ == '__main__':
     esprint('Starting the parser')
     # strap arguments from modules as argument groups
     esprint('Loading modules')
+
     for handle,module in modules.handles.items():
 
         helpers.validate_module(module)

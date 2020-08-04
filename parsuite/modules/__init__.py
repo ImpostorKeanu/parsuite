@@ -24,18 +24,19 @@ base = m.string[m.start():m.end()]
 # Sort the file names to organize the modules by name at the main interface
 files = sorted(
     [
-        f.name for f in Path(base).glob('**/*.py')
-        if not f.name.startswith('_')
+        f for f in Path(base).glob('**/*.py')
+        if f.is_file() and not f.name.startswith('_')
     ]
 )
 
 for f in files:
 
-    mname = f[:len(f)-3]
+    mname = f.name[:len(f.name)-3]
 
     # https://stackoverflow.com/questions/67631/how-to-import-a-module-given-the-full-path
     # This is pretty much magic to me
-    spec = spec_from_file_location(mname, base+f)
+    spec = spec_from_file_location(mname, f.absolute())
     mod = module_from_spec(spec)
     spec.loader.exec_module(mod)
     handles[mname] = mod
+
