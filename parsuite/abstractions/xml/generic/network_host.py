@@ -579,24 +579,25 @@ class Host:
                 # FORMAT THE ADDRESSES
                 # ====================
 
-                greatest_length = 0
                 for address in addresses:
 
                     # Format the address
                     addr = f'{scheme}{address}:{port.number}'
 
                     # Add extrainfo when requested
-                    if extrainfo and port.service.extrainfo:
+                    if extrainfo:
+
+                        comma=True
                         if port.service.product:
+                            comma=False
                             addr += f',{port.service.product}; '
 
-                        if not port.service.product:
-                            addr += f',{port.service.extrainfo};'
-                        else:
-                            addr += f'{port.service.extrainfo};'
+                        if port.service.extrainfo:
+                            addr += ['',','][comma]+f'{port.service.extrainfo};'
 
                     for func in mangle_functions:
                         addr = func(addr)
+
                     output.append(addr)
 
         return sorted(output)
