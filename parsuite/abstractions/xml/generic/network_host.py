@@ -588,10 +588,12 @@ class Host:
                     # Add extrainfo when requested
                     if extrainfo and port.service.extrainfo:
                         if port.service.product:
-                            addr += f',{port.service.product}; '\
-                                    f'{port.service.extrainfo};'
-                        else:
+                            addr += f',{port.service.product}; '
+
+                        if not port.service.product:
                             addr += f',{port.service.extrainfo};'
+                        else:
+                            addr += f'{port.service.extrainfo};'
 
                     for func in mangle_functions:
                         addr = func(addr)
