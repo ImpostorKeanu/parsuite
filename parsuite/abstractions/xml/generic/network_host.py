@@ -99,6 +99,13 @@ class Service:
         if self.name == val: return True
         else: return False
 
+    def to_csv(self):
+        info = []
+        if self.product: info.append(f'Product:::{self.product}')
+        if self.version: info.append(f'Version:::{self.version}')
+        if self.extrainfo: info.append(f'ExtraInfo:::{self.extrainfo}')
+        return ",".join(info)
+
 class Port:
     '''A basic class representing an Nmap port object.
 
@@ -333,6 +340,12 @@ class Host:
 
     def get_ports(self, *args, **kwargs):
         return [port.number for port in self.ports]
+
+    def to_services(self, *args, **kwargs):
+        return set([v for v in
+                    [p.service.to_csv() for p in self.ports if p.service]
+                if v])
+        
 
     def to_ports(self, service_search=[], sreg=False,
             *args, **kwargs):
