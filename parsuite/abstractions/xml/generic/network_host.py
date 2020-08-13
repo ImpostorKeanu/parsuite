@@ -593,7 +593,13 @@ class Host:
                             addr += f',{port.service.product}; '
 
                         if port.service.extrainfo:
-                            addr += ['',','][comma]+f'{port.service.extrainfo};'
+                            comma=False
+                            addr += ['',','][comma]+ \
+                                    f'{port.service.extrainfo};'
+
+                        if port.service.version:
+                            addr += ['',','][comma]+'Version: ' \
+                                    f'{port.service.version};'
 
                     for func in mangle_functions:
                         addr = func(addr)
