@@ -587,19 +587,20 @@ class Host:
                     # Add extrainfo when requested
                     if extrainfo:
 
-                        comma=True
+                        info = []
                         if port.service.product:
-                            comma=False
-                            addr += f',{port.service.product}; '
+                            info.append(f'Product:::' \
+                                    f'{port.service.product}')
 
                         if port.service.extrainfo:
-                            comma=False
-                            addr += ['',','][comma]+ \
-                                    f'{port.service.extrainfo};'
+                            info.append(f'ExtraInfo:::'\
+                                    f'{port.service.extrainfo}')
 
                         if port.service.version:
-                            addr += ['',','][comma]+'Version: ' \
-                                    f'{port.service.version};'
+                            info.append(f'Version:::' \
+                                    f'{port.service.version}')
+
+                        addr += ","+"; ".join(info)
 
                     for func in mangle_functions:
                         addr = func(addr)
