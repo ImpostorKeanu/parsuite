@@ -9,6 +9,13 @@ import xml.etree.ElementTree as ET
 import argparse
 import os
 import pdb
+import csv
+
+class CSVList(list):
+
+    def write(self,value):
+        self.append(value)
+
 
 help='''Dump hosts and open ports from multiple masscan, nmap,
 or nessus files. A generalized abstraction layer is used to
@@ -193,7 +200,11 @@ def parse(input_files, format, all_addresses, fqdns,
     if format == 'ports':
         print(delimiter.join(list(set([str(p) for p in output]))))
     if format == 'services':
-        print(delimiter.join(sorted(list(set(output)))))
+        csv_output = CSVList()
+        writer = csv.writer(csv_output)
+        writer.writerow(['socket','protocol','service_name','service_product','service_version','service_extrainfo'])
+        for row in output: writer.writerow(row)
+        print(''.join(csv_output))
     else:
         print(delimiter.join(output))
 
