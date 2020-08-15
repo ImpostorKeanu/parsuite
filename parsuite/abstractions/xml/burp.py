@@ -15,9 +15,15 @@ class HTTPRequest(BaseHTTPRequestHandler):
         self.error_code = self.error_message = None
         self.parse_request()
         self.headers = dict(self.headers)
-
         self.body = self.rfile.read()
-        self.sbody = self.body.decode('utf8')
+
+        self.sbody = None
+        self.binary = False
+
+        try:
+            self.sbody = self.body.decode('utf8')
+        except:
+            self.binary = True
 
         self.content = self.body
         self.scontent = self.sbody
@@ -43,9 +49,15 @@ class HTTPResponse(HTTPResponse):
             f'{self.version}'
 
         self.headers = dict(self.headers)
-
         self.content = self.read()
-        self.scontent = self.content.decode('utf8')
+
+        self.scontent = None
+        self.binary = False
+
+        try:
+            self.scontent = self.content.decode('utf8')
+        except:
+            self.binary = True
 
         self.body = self.content
         self.sbody = self.scontent

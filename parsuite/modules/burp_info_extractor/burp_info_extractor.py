@@ -33,6 +33,9 @@ args = [
         help='Enable parsing of large files. Default: False'),
 ]
 
+def bytify(s,encoding="utf8"):
+    return bytes(s,encoding)
+
 def parse(input_file=None, no_url=False, output_directory=None,
         no_headers=False, no_beautify_js=False, huge_tree=False,
         **kwargs):
@@ -74,14 +77,19 @@ def parse(input_file=None, no_url=False, output_directory=None,
 
         except Exception as e:
 
+            pdb.set_trace()
             esprint(f'Failed to parse item #{counter}: {e}')
             continue
 
-        with open(str(counter)+'.req','w') as outfile:
+        # ==================
+        # HANDLE THE REQUEST
+        # ==================
+
+        with open(str(counter)+'.req','wb') as outfile:
 
             if write_url:
                 outfile.write(
-                    f'URL: {item.url}\n{item.request.firstline}\n'
+                    bytify(f'URL: {item.url}\n{item.request.firstline}\n')
                 )
 
             for k,v in item.request.headers.items():
@@ -90,14 +98,14 @@ def parse(input_file=None, no_url=False, output_directory=None,
                         and re.match('content-type',k,re.I) \
                         and re.search('json',v,re.I):
                     try:
-                        item.request.sbody = jsbeautifier.beautify(item.request.sbody)
+                        item.request.sbody = bytify(jsbeautifier.beautify(item.request.sbody))
                     except Exception as e:
                         esprint('Failed to beautify JSON: {e}')
 
-                if write_headers: outfile.write(f'{k}: {v}\n')
+                if write_headers: outfile.write(bytify(f'{k}: {v}\n'))
 
-            if write_headers: outfile.write('\n\n')
-            outfile.write(item.request.sbody)
+            if write_headers: outfile.write(b'\n\n')
+            outfile.write(item.request.body)
         
         if item.mimetype: mimetype = item.mimetype.lower()
         else: mimetype = 'no_mimetype'
@@ -106,12 +114,12 @@ def parse(input_file=None, no_url=False, output_directory=None,
         # HANDLE THE RESPONSE
         # ===================
 
-        with open(str(counter)+'.resp.'+mimetype,'w') as outfile:
+        with open(str(counter)+'.resp.'+mimetype,'wb') as outfile:
             
             # Write the first line
             if write_url:
                 outfile.write(
-                    f'URL: {item.url}\n{item.response.firstline}\n'
+                    bytify(f'URL: {item.url}\n{item.response.firstline}\n')
                 )
 
             # Handle response headers
@@ -122,19 +130,19 @@ def parse(input_file=None, no_url=False, output_directory=None,
                         and re.match('content-type',k,re.I) \
                         and re.search('java|json',v,re.I):
                     try:
-                        item.response.sbody = jsbeautifier.beautify(item.response.sbody)
+                        item.response.sbody = bytify(jsbeautifier.beautify(item.response.sbody))
                     except Exception as e:
                         esprint('Failed to beautify JavaScript/JSON: {e}')
                         pass
 
                 # Write headers to the output file
-                if write_headers: outfile.write(f'{k}: {v}\n')
+                if write_headers: outfile.write(bytify(f'{k}: {v}\n'))
 
             # Write newlines
-            if write_headers: outfile.write('\n\n')
+            if write_headers: outfile.write(b'\n\n')
 
             # Write response body to disk
-            outfile.write(item.response.sbody+'\n')
+            outfile.write(item.response.body)
         
         counter += 1
 
