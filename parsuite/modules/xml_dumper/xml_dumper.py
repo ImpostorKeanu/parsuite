@@ -205,6 +205,8 @@ def parse(input_files, format, all_addresses, fqdns,
         writer.writerow(['socket','protocol','service_name','service_product','service_version','service_extrainfo'])
         for row in output: writer.writerow(row)
         print(''.join(csv_output))
+    if format == 'san_dns_names':
+        print(delimiter.join(sorted(list(set(output)))))
     else:
         print(delimiter.join(output))
 

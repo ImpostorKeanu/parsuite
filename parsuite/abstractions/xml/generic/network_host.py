@@ -47,7 +47,9 @@ class Script:
         dns_names = []
         for line in self.output.split('\n'):
             if not line.startswith('Subject Alternative Name'): continue
-            dns_names += ' '.join(line.split('DNS:')[1:]).split(', ')
+            dns_names += ' '.join([
+                    v.lower() for v in line.split('DNS:')[1:]
+                ]).split(', ')
         return dns_names
 
 class Service:
@@ -486,7 +488,7 @@ class Host:
                             output += [s.strip() for s
                                     in script.san_dns_names]
 
-        return list(set(output))
+        return output
 
     def to_sockets(self,fqdns=False,open_only=True,protocols=['tcp'],
             scheme_layer=None,mangle_functions=[],port_search=[],
