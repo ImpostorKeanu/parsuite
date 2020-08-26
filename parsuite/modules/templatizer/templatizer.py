@@ -45,6 +45,12 @@ args = [
         the following template: <<<:first_name:lowercase_encode>>>. The
         following encoders are currently supported:
         ''' + (', '.join(TRANSFORMS))),
+    Argument('--header-values','-hvs',
+        nargs='+',
+        required=False,
+        help='''Space delimited strings that will be used to form the
+        header row of the CSV'''
+        ),
     Argument('--csv-file','-csv',
         required=True,
         help='''CSV file containing values that will be placed in
@@ -81,8 +87,21 @@ def encode(val, encoder=None):
     if not encoder: return val
     return globals()[encoder](val)
 
-def parse(text_templates,csv_file,random_length,out_csv,
+def parse(text_templates,header_values,csv_file,random_length,out_csv,
         out_mode,*args, **kwargs):
+
+    # ======================
+    # VALIDATE HEADER VALUES
+    # ======================
+    '''
+    The count of header values must match the count of text templates
+    '''
+
+    if header_values and \
+            header_values.__len__() != text_templates.__len__():
+
+        raise Exception("The count of header values must match the count of" \
+                " text templates.")
 
     # ==========================
     # CAPTURE ALL TEMPLATE FILES
@@ -100,11 +119,9 @@ def parse(text_templates,csv_file,random_length,out_csv,
     # PARSE CSV AND EXTRACT HEADER
     # ============================
 
-    header, csv_lines = [], []
-    with open(csv_file) as csvfile:
-        csv_lines = [l for l in csv.reader(csvfile)]
-        headers = csv_lines.pop(0)
-    
+    csv_file = open(csv_file)
+    csv_reader = csv.reader(csv_file)
+    headers = csv_reader.__next__()
 
     # ===============================
     # BUILD FIELD REGULAR EXPRESSIONS
@@ -126,6 +143,20 @@ def parse(text_templates,csv_file,random_length,out_csv,
     for h in headers:
         offsets[h] = ind
         ind += 1
+
+    # ==================================
+    # PREPARE CSV OBJECT AND OUTPUT FILE
+    # ==================================
+
+    if out_mode == 'overwrite': out_mode = 'w'
+    else: out_mode = 'a'
+
+    if out_csv != stdout: outfile = open(out_csv, out_mode)
+    else: outfile = out_csv
+    csv_writer = csv.writer(outfile)
+
+    # Write the header values to the CSV file
+    if header_values: csv_writer.writerow(header_values)
 
     # ========================================
     # UPDATE EACH TEXT TEMPLATE FROM CSV FILES
@@ -152,19 +183,16 @@ def parse(text_templates,csv_file,random_length,out_csv,
     5. make replacements for each field
     '''
 
-    if out_mode == 'overwrite': out_mode = 'w'
-    else: out_mode = 'a'
-
-    if out_csv != stdout: outfile = open(out_csv, out_mode)
-    else: outfile = out_csv
-    csv_writer = csv.writer(outfile)
-
     try:
 
+        # Track random values that have been used
         used_randoms = []
-        for row in csv_lines:
-    
+        for row in csv_reader:
+   
+            # Track randoms for each tagged value
             rands = {}
+
+            # Output values for each field
             out_fields = []
             for template in text_templates:
 
@@ -176,6 +204,7 @@ def parse(text_templates,csv_file,random_length,out_csv,
                     # ==================
                     # TRACK REPLACEMENTS
                     # ==================
+
                     if match.groups()[4]:
                         encoder = match.groups()[4]
                     else:
@@ -233,9 +262,10 @@ def parse(text_templates,csv_file,random_length,out_csv,
                     # ==============================
                     # IDENTIFY AND HANDLE CSV FIELDS
                     # ==============================
+
                     val = row[offsets[match.groups()[0]]]
                     if not val:
-                        esprint('Empty value detected. Continuing...')
+                        esprint('Empty value detected in CSV. Skipping.')
                         continue
 
                     if match.groups()[2]:
@@ -289,6 +319,7 @@ def parse(text_templates,csv_file,random_length,out_csv,
 
     finally:
 
+        csv_file.close()
         outfile.close()
 
     return 0
