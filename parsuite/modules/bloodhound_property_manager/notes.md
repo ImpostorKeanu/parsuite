@@ -91,3 +91,26 @@ parsuite bloodhound_property_manager -jfiles *users.json -ps owned=true -target-
 [+] Finished!
 [+] Module execution complete. Exiting.
 ```
+
+# Specifying Properties and Target Objects
+
+Properties supplied to the `--properties` or `-ps` flags are
+simply `=` delimited key-valye pairs that are parsed by the
+following regular expression. At runtime, the property part
+of the match will be used as the key added to the target
+object to receive the value.
+
+```python3
+import re
+PROP_RE=re.compile('^(?P<property>.+?)\=(?P<value>.+)$')
+```
+
+Target object values follow the identical structure but
+are used to match a property value on a given object. This
+is how objects are targeted to receive a property. So the
+following value would apply the properties to any user
+with the name `JIM@SOMEDOMAIN.COM`:
+
+```
+name=JIM@SOMEDOMAIN.COM
+```
