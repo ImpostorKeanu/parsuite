@@ -9,14 +9,25 @@ import os
 import re
 from sys import exit
 import ipaddress
+from sys import stderr
+from tabulate import tabulate
 
+import logging
+LOG_FORMAT='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+logger = logging.getLogger('parsuite.nessus_output_dumper')
+handler = logging.StreamHandler(stderr)
+handler.setFormatter(logging.Formatter(LOG_FORMAT))
+logger.addHandler(handler)
 
 help='Parse a Nessus file and dump the contents to disk by: '\
     'risk_factor > plugin_name'
 
+RISK_FACTORS = ['none','low','medium','high','critical']
+
 args = [
     DefaultArguments.input_file,
-    Argument('--output-directory', '-od', required=True,
+    Argument('--output-directory', '-od',
+        required=True,
         help='Output directory.'),
     Argument('--plugin-outputs', '-po',
         action='store_true',
@@ -26,20 +37,32 @@ args = [
     Argument('--disable-color-output', '-dc',
         action='store_true',
         help='''Disable color output.
-        ''')
+        '''),
+    Argument('--debug',
+        action='store_true',
+        help='Enable debug output.'),
+    Argument('--risk-factors', '-rfs',
+        nargs='+',
+        help='Space delimited list of risk factors to dump. Default: %(default)s',
+        default=RISK_FACTORS)
+
 ]
 
 # plugin_name_re = pname_re = re.compile('(\-|\s|\\|\<|\>|\=|\(|\)|/|\'|\"|\.)+')
 plugin_name_re = pname_re = re.compile('(\s|\W)+')
 
 def parse(input_file=None, output_directory=None, plugin_outputs=False,
-        disable_color_output=None, *args,**kwargs):
+        disable_color_output=None, debug=None, risk_factors=RISK_FACTORS,
+        *args,**kwargs):
 
     if disable_color_output:
         color = False
     else:
         from termcolor import colored
         color = True
+
+    if debug:
+        logger.setLevel(logging.DEBUG)
 
     # build output directory
     bo = base_output_path = helpers.handle_output_directory(
@@ -65,8 +88,9 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
 
             if name.text == 'TARGET':
 
-                value = pref.find('./value')
-                of.write('\n'.join(value.text.split(',')))
+                value = pref.find('./value').text.split(',')
+                logger.debug(f'Total target count: {len(value)}')
+                of.write('\n'.join(value))
                 break
 
     # Dump responsive ips
@@ -80,7 +104,12 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
             if ip not in cache:
                 cache.append(ip)
 
-        of.write('\n'.join(sorted(cache)))
+        count = 0
+        for value in sorted(cache):
+            count += 1
+            of.write(value+'\n')
+
+        logger.debug(f'Total responsive IPs: {count}')
 
     # Dump additional hostnames to disk
     for a in ['netbios-name', 'host-fqdn', 'host-rdns']:
@@ -90,16 +119,19 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
         fname += '.txt'
         sprint(f'Dumping {a} values to {fname}')
 
-        values = {}
         if tree.xpath(f'//tag[@name="{a}"]'):
 
             with open(fname.replace('-','_'),'w') as outfile:
 
-                values = []
+                values, count = [], 0
                 for ele in tree.xpath(f'//tag[@name="{a}"]'):
                     if not ele.text in values:
+                        count += 1
                         values.append(ele.text)
                         outfile.write(ele.text+'\n')
+
+                logger.debug(f'Total of {a} values: {count}')
+
 
     # Dump open ports
     sprint('Dumping open ports')
@@ -111,6 +143,8 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
 
         of.write('\n'.join(ports))
 
+        logger.debug(f'Total count of ports: {len(ports)}')
+
     os.chdir('..')
 
     # =====================================
@@ -120,11 +154,11 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
     # Dump plugin outputs
     sprint('Dumping report items\n')
     finding_index = {
-        'NONE':[],
-        'LOW':[],
-        'MEDIUM':[],
-        'HIGH':[],
-        'CRITICAL':[]
+        'NONE':{},
+        'LOW':{},
+        'MEDIUM':{},
+        'HIGH':{},
+        'CRITICAL':{}
     }
 
     color_lookup = {
@@ -134,16 +168,6 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
             'high':'red',
             'critical':'magenta'
     }
-
-    # ============================================
-    # GET LONGEST PID LENGTH FOR OUTPUT FORMATTING
-    # ============================================
-
-    pid_len = 0
-    for pid in list(set(tree.xpath('//@pluginID'))):
-        plen = pid.__len__()
-        if plen > pid_len: pid_len = plen
-    pid_len += 2
 
     # =================
     # PARSE EACH PLUGIN
@@ -157,11 +181,49 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
     print(header)
     print('-'*header.__len__())
 
-    for plugin_id in list(set(tree.xpath('//@pluginID'))):
+    # ============================
+    # GET PLUGIN ID BY RISK FACTOR
+    # ============================
+
+    plugin_ids = []
+
+    for risk_factor in risk_factors:
+
+        if risk_factor == 'none':
+            severity = 0
+        elif risk_factor == 'low':
+            severity = 1
+        elif risk_factor == 'medium':
+            severity = 2
+        elif risk_factor == 'high':
+            severity = 3
+        elif risk_factor == 'critical':
+            severity = 4
+        else:
+            continue
+
+        plugin_ids += set(tree.xpath(
+                f'//ReportItem[@severity="{severity}"]/@pluginID'))
+
+    # ============================================
+    # GET LONGEST PID LENGTH FOR OUTPUT FORMATTING
+    # ============================================
+
+    pid_len = 0
+    for pid in plugin_ids:
+        plen = pid.__len__()
+        if plen > pid_len: pid_len = plen
+    pid_len += 2
+
+    # ==============================
+    # PARSE REPORT ITEM BY PLUGIN_ID
+    # ==============================
+
+    alerted = []
+    for plugin_id in plugin_ids:
 
         rhosts = {}
         protocols = []
-        alert = True
         pid = plugin_id
 
         # ==========================================================
@@ -171,14 +233,16 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
         for eri in tree.xpath(f'//ReportItem[@pluginID="{plugin_id}"]'):
             ri = FromXML.report_item(eri)
 
+            if ri.risk_factor not in risk_factors: continue
+
             if not ri.protocol in protocols:
                 protocols.append(ri.protocol)
 
-            if alert:
-                alert = False
+            if not plugin_id in alerted:
+                alerted.append(plugin_id)
 
                 if color:
-                    rf = colored(ri.risk_factor.upper(),
+                    rf = colored(ri.risk_factor.capitalize(),
                             color_lookup[ri.risk_factor])
 
                     if ri.risk_factor.__len__() < 11:
@@ -214,40 +278,91 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
 
                 print(rf)
 
+            # ===================================================
+            # CREATE/UPDATE THE OWNER HOST WITH THE AFFECTED PORT
+            # ===================================================
+
+            '''
+            - Report items (ri) are child elements of hosts
+            - The parent of the report item is a host element
+            '''
+
+            # Get the host element
             parent = eri.getparent()
+
+            # Get the name of the host
             name = parent.get('name')
 
-            if name in rhosts:
+            host_ips = parent.xpath('./HostProperties/tag[@name="host-ip"]/text()')
 
-                rh = rhosts[name]
-                ports = rh.ports.get('number',ri.port.number) \
-                    .get('protocol',ri.protocol)
-                if not ports:
-                    rh.append_port(ri.port)
+            for host_ip in host_ips:
+
+                rh = rhosts.get(host_ip)
+
+                # Check if the host is already being tracked in rhosts
+                if rh:
+    
+                    # ==================
+                    # UPDATE KNOWN RHOST
+                    # ==================
+    
+                    # update the ports list of the target host with the port
+                    # of the current report item
+                    
+                    if not ri.port in rh.ports \
+                            .get('number', ri.port.number) \
+                            .get('protocol', ri.protocol):
+                        rh.append_port(ri.port)
+    
                 else:
-                    port = ports[0]
+    
+                    # ================
+                    # CREATE NEW RHOST
+                    # ================
+    
+                    rh = FromXML.report_host(parent)
+                    rh.append_port(ri.port)
+                    rhosts[host_ip] = rh
+    
+                # ====================
+                # HANDLE PLUGIN OUTPUT
+                # ====================
+    
+                if ri.plugin_output and plugin_outputs:
+                    
+                    ri.port.plugin_outputs.append_output(
+                        plugin_id, ri.plugin_output
+                    )
 
-            else:
+        # =============================
+        # HANDLE THE FINDING INDEX ITEM
+        # =============================
+        '''
+        - this is dumped to the findings index in additional_info
+        '''
 
-                rh = FromXML.report_host(parent)
-                rh.append_port(ri.port)
-                rhosts[name] = rh
-
-            if ri.plugin_output:
-                ri.port.plugin_outputs.append_output(
-                    plugin_id, ri.plugin_output
-                )
-
-        # Handle finding index item
         sev = ri.risk_factor.upper()
-        prefix = f'[{sev}] [{plugin_id}] '
+        prefix = f'[{sev}] [{plugin_id}] [{len(rhosts.keys())}] '
         suffix = ' '
+
+        exploitable, fws = 'false', 'n/a'
+
         if ri.exploit_available:
-            suffix += '[EXPLOITABLE]'
+            exploitable = 'true'
+
         if ri.exploit_frameworks:
             fws = ','.join([fw.upper() for fw in ri.exploit_frameworks])
-            suffix += f'[EXPLOIT FRAMEWORKS: {fws}]'
-        finding_index[sev].append(prefix+ri.plugin_name+suffix)
+
+        finding_index[sev][ri.plugin_name]=(
+            {
+                'plugin_name': ri.plugin_name,
+                'plugin_id': plugin_id,
+                'severity': sev,
+                'count': len(rhosts.keys()),
+                'exploitable': exploitable,
+                'exploit_frameworks': fws
+            }
+        )
 
         # ================================
         # BUILD REPORT ITEM DIRECTORY NAME
@@ -273,10 +388,12 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
         # WRITE CONTENT TO DISK
         # =====================
 
-        # Additional information
+        # Write additional info
         with open('additional_info.txt','w') as of:
             of.write(ri.additional_info())
 
+        # Iterate over each protocol
+        # These were captured while collecting plugin ids
         for protocol in protocols:
 
             # Address Lists
@@ -290,110 +407,94 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
 
             try:
 
+                # Prepare to handle plugin outputs
                 if plugin_outputs:
 
                     plugin_outputs_file = open(f'{protocol}_plugin_outputs.txt','w')
 
                 for rhost in rhosts.values():
+                    host_ips, host_fqdns = [], []
 
-                    plist = rhost.__getattribute__(protocol+'_ports')
-                    if plist:
+                    plist = rhost.ports
+                    if not plist: continue
 
-                        for addr in rhost.to_addresses(fqdns=True):
+                    # ====================
+                    # CAPTURE IP ADDRESSES
+                    # ====================
 
-                            if re.match(ipv4_re,addr):
-                                ips.append(addr)
-                            elif re.match(ipv6_re,addr):
-                                ips.append(addr)
-                            elif re.match(fqdn_re,addr):
-                                fqdns.append(addr)
+                    for addr in rhost.to_addresses(fqdns=True):
+
+                        try:
+
+                            ip = ipaddress.ip_address(addr)
+                            host_ips.append(ip)
+
+                            if not ip in ips: ips.append(str(ip))
+                        except:
+                            if re.match(fqdn_re, addr):
+                                host_fqdns.append(addr)
+                                if not addr in fqdns: fqdns.append(addr)
                             else:
+                                logger.debug(
+                                    f'Failed to handle address: {addr}')
                                 continue
 
-                        for number,port in plist.items():
+                    # ===============
+                    # CAPTURE SOCKETS
+                    # ===============
 
-                            socket = None
-                            fsocket = None
+                    for port in sorted(plist):
 
-                            if number > 0:
-                                ports.append(number)
+                        if port.number > 0:
 
-                            for ip in ips:
-                                if number > 0:
-                                    socket = f'{ip}:{port.number}'
-                                    sockets.append(socket)
+                            if not port.number in ports:
+                                ports.append(port.number)
+    
+                            for ip in host_ips:
+                                socket = f'{ip}:{port.number}'
+                                sockets.append(socket)
+    
+                            for fqdn in host_fqdns:
+                                fsocket = f'{fqdn}:{port.number}'
+                                fsockets.append(fsocket)
 
-                            for fqdn in fqdns:
-                                if number > 0:
-                                    fsocket = f'{fqdn}:{port.number}'
-                                    fsockets.append(fsocket)
-
-                            if not socket: continue
+                        if plugin_outputs and plugin_id in port.plugin_outputs:
 
                             header = socket
                             if fsocket: header = header+','+fsocket+':'
                             ban = '='*header.__len__()
                             header = f'{ban}{header}{ban}'
 
-                            if plugin_outputs and plugin_id in port.plugin_outputs:
+                            plugin_output = f'{header}\n\n'+'\n'.join(
+                                port.plugin_outputs[plugin_id]
+                            )
 
-                                plugin_output = f'{header}\n\n'+'\n'.join(
-                                    port.plugin_outputs[plugin_id]
-                                )
+                            plugin_outputs_file.write('\n\n'+plugin_output)
 
-                                plugin_outputs_file.write('\n\n'+plugin_output)
+            except Exception as e:
+
+                logger.debug(f'Unhandled exception occurred: {e}')
 
             finally:
 
-                if plugin_outputs:
-                    plugin_outputs_file.close()
+                if plugin_outputs: plugin_outputs_file.close()
 
             # =====================
             # HANDLE IPv4 ADDRESSES
             # =====================
 
-            '''
-
-            IPs are now properly sorted before written to disk.
-
-            1. convert each ipv4 string to an ipaddress.ip_address object
-            2. sort the ip_address objects
-            3. convert each ip_address object back to a string
-            '''
-
-            ips = [ip.__str__() for ip in sorted(set([ipaddress.ip_address(ip) for ip in ips]))]
+            ips = [str(ip) for ip in sorted(set(ips))]
 
             # ===================
             # HANDLE IPv4 SOCKETS
             # ===================
 
-            '''
+            sorted_sockets = []
+            for ip in ips:
+                sorted_sockets += [s for s in sockets if s.startswith(ip)]
+            sockets = sorted_sockets
 
-            Sockets are now properly sorted before written to disk.
-
-            1. unique string sockets
-            2. map each string ip to a list of ports
-            3. convert each string ip to an ipaddress.ip_address object
-            4. sort the ip_address objects
-            5. create a new list of sockets
-            '''
-
-            sockets = set(sockets)
-            smap = {}
-
-            for s in sockets:
-                ip,port = s.split(':')
-                if ip not in smap:
-                    smap[ip] = [port]
-                elif port not in smap[ip]:
-                    smap[ip].append(port)
-
-            sips = [ip.__str__() for ip in sorted([ipaddress.ip_address(ip) for ip in set(smap.keys())])]
-            sockets = []
-            for sip in sips:
-                for p in sorted(smap[sip]):
-                    s = f'{sip}:{p}'
-                    if s not in sockets: sockets.append(s)
+            finding_index[sev][ri.plugin_name]['count'] = len(sockets)
 
             # ============
             # HANDLE PORTS
@@ -431,16 +532,34 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
     os.chdir('additional_info')
 
     print()
+
     sprint('Writing report item index')
     with open('report_item_index.txt','w') as outfile:
 
-        outfile.write('[Risk Factor] [Plugin ID] Plugin Name [Exploitable]' \
-                ' [Exploit Frameworks]\n')
+        rows = [['Risk Factor', 'Plugin ID', 'Count Affected',
+                'Exploitable', 'Exploit Frameworks', 'Plugin Name']]
 
         for k in ['CRITICAL','HIGH','MEDIUM','LOW','NONE']:
 
             if finding_index[k]:
-                outfile.write('\n'.join(finding_index[k])+'\n')
+
+                for plugin_name in sorted(
+                        list(finding_index[k].keys())):
+                    
+                    dct = finding_index[k][plugin_name]
+
+                    rows.append([
+                        dct.get('severity'),
+                        dct.get('plugin_id'),
+                        dct.get('count'),
+                        dct.get('exploitable'),
+                        dct.get('exploit_frameworks'),
+                        dct.get('plugin_name'),
+                    ])
+
+        outfile.write(
+            tabulate(rows,headers='firstrow')+'\n'
+        )
 
     print()
     return 0

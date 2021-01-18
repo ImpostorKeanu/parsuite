@@ -150,6 +150,9 @@ class Port:
         return f'< [{cls}] Number: {self.number} ' \
             f'Protocol: \'{self.protocol}\' >'
 
+    def __lt__(self, port):
+        return self.number < port.number
+
 class PortDict(dict):
     '''A dictionary of port number to port list mappings that
     enforces a particular type of protocol.
