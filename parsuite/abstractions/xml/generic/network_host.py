@@ -384,7 +384,7 @@ class Host:
                 ports += self.ports.get('service',value=service,
                         value_attr='extrainfo')
 
-        return [p.number for p in set(ports)]
+        return [str(p.number) for p in set(ports)]
 
 
     def get_addresses(self,fqdns=False, port_search=[], service_search=[],
@@ -492,6 +492,35 @@ class Host:
                                     in script.san_dns_names]
 
         return output
+
+    def to_hostports(self, protocols=['tcp'], fqdns=False,
+            *args, **kwargs):
+        '''Return a list of transport-layer URI values with each open port
+        suffixed instead of only a single value.
+        '''
+
+        addresses = self.get_addresses()
+        output = []
+
+        for transport_protocol in protocols:
+
+            ports = []
+    
+            for port_number, port in getattr(self,
+                    transport_protocol+'_ports') \
+                    .items():
+
+                if not port.state == 'open': continue
+                ports.append(str(port_number))
+
+            for address in addresses:
+
+                output.append(
+                    f'{transport_protocol}://{address}:{",".join(ports)}'
+                )
+
+        return sorted(output)
+
 
     def to_sockets(self,fqdns=False,open_only=True,protocols=['tcp'],
             scheme_layer=None,mangle_functions=[],port_search=[],

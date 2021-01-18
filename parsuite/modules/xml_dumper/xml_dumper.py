@@ -34,7 +34,7 @@ args = [
     Argument(
         '--format','-f',
         default='address',
-        choices=['socket','address','uri','port','san_dns_name','service'],
+        choices=sorted(['socket','address','uri','port','san_dns_name','service','hostport']),
         help='''Output format. Default: %(default)s'''),
     Argument(
         '--transport-layer','-tl',
@@ -100,8 +100,12 @@ args = [
         Default: %(default)s''')
 ]
 
-PLURAL_MAP = {'address':'addresses','socket':'sockets','uri':'uris',
-        'port':'ports','san_dns_name':'san_dns_names',
+PLURAL_MAP = {'address':'addresses',
+        'hostport':'hostports',
+        'socket':'sockets',
+        'uri':'uris',
+        'port':'ports',
+        'san_dns_name':'san_dns_names',
         'service':'services'}
 
 def parse(input_files, format, all_addresses, fqdns, 
@@ -198,14 +202,14 @@ def parse(input_files, format, all_addresses, fqdns,
     
     # Format and dump the output
     if format == 'ports':
-        print(delimiter.join(list(set([str(p) for p in output]))))
-    if format == 'services':
+        print(delimiter.join([str(p) for p in sorted(set(output))]))
+    elif format == 'services':
         csv_output = CSVList()
         writer = csv.writer(csv_output)
         writer.writerow(['socket','protocol','service_name','service_product','service_version','service_extrainfo'])
         for row in output: writer.writerow(row)
         print(''.join(csv_output))
-    if format == 'san_dns_names':
+    elif format == 'san_dns_names':
         print(delimiter.join(sorted(list(set(output)))))
     else:
         print(delimiter.join(output))
