@@ -429,7 +429,7 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
                             ip = ipaddress.ip_address(addr)
                             host_ips.append(ip)
 
-                            if not ip in ips: ips.append(str(ip))
+                            if not ip in ips: ips.append(ip)
                         except:
                             if re.match(fqdn_re, addr):
                                 host_fqdns.append(addr)
