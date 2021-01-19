@@ -483,7 +483,8 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
             # HANDLE IPv4 ADDRESSES
             # =====================
 
-            ips = [str(ip) for ip in sorted(set(ips))]
+            ips = [str(ip) for ip in set(ips)]
+            finding_index[sev][ri.plugin_name]['ip_count'] = len(ips)
 
             # ===================
             # HANDLE IPv4 SOCKETS
@@ -491,10 +492,11 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
 
             sorted_sockets = []
             for ip in ips:
-                sorted_sockets += [s for s in sockets if s.startswith(ip)]
+                for s in [s for s in sorted(sockets) if s.startswith(ip)]:
+                    if not s in sorted_sockets: sorted_sockets.append(s)
             sockets = sorted_sockets
 
-            finding_index[sev][ri.plugin_name]['count'] = len(sockets)
+            finding_index[sev][ri.plugin_name]['socket_count'] = len(sockets)
 
             # ============
             # HANDLE PORTS
@@ -513,6 +515,15 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
 
             fqdns = sorted(set(fqdns))
             fsockets = sorted(set(fsockets))
+
+            finding_index[sev][ri.plugin_name]['fqdn_count'] = len(fqdns)
+            finding_index[sev][ri.plugin_name]['fqdn_socket_count'] = len(fsockets)
+
+            logger.debug(
+                f'{ri.plugin_name}: ip_count({len(ips)})  ' \
+                f'socket_count({len(sockets)}) fqdn_count({len(fqdns)})' \
+                f'fqdn_socket_count({len(fsockets)})'
+            )
 
             # write address lists to disk
             for fmt,lst in {'ips':ips,
@@ -536,8 +547,9 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
     sprint('Writing report item index')
     with open('report_item_index.txt','w') as outfile:
 
-        rows = [['Risk Factor', 'Plugin ID', 'Count Affected',
-                'Exploitable', 'Exploit Frameworks', 'Plugin Name']]
+        rows = [['Risk Factor', 'Plugin ID', 'Count IPs', 'Count Sockets',
+            'Count FQDNs', 'Count FQDN Sockets', 'Exploitable',
+            'Exploit Frameworks', 'Plugin Name']]
 
         for k in ['CRITICAL','HIGH','MEDIUM','LOW','NONE']:
 
@@ -551,7 +563,10 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
                     rows.append([
                         dct.get('severity'),
                         dct.get('plugin_id'),
-                        dct.get('count'),
+                        dct.get('ip_count'),
+                        dct.get('socket_count'),
+                        dct.get('fqdn_count'),
+                        dct.get('fqdn_socket_count'),
                         dct.get('exploitable'),
                         dct.get('exploit_frameworks'),
                         dct.get('plugin_name'),

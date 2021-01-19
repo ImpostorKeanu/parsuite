@@ -183,16 +183,16 @@ class ReportItem:
         'plugin_publication_date', 'plugin_type', 'risk_factor',
         'script_copyright', 'script_version', 'solution',
         'synopsis', 'exploit_available',
-        'exploit-framework_canvas', 'exploit-framework_metasploit',
-        'exploit-framework_core', 'metasploit_name', 'canvas_package'
+        'exploit_framework_canvas', 'exploit_framework_metasploit',
+        'exploit_framework_core', 'metasploit_name', 'canvas_package'
     ]
 
     # Normalize XML names that are invalid or undesirable for use as
     # a python object attribute.
     NORMALIZED_MAP = {
-        'exploit-framework_canvas':'exploit_framework_canvas',
-        'exploit-framework_metasploit':'exploit_framework_metasploit',
-        'exploit-framework_core':'exploit_framework_core',
+        'exploit_framework_canvas':'exploit_framework_canvas',
+        'exploit_framework_metasploit':'exploit_framework_metasploit',
+        'exploit_framework_core':'exploit_framework_core',
         'pluginID':'plugin_id','pluginName':'plugin_name',
         'pluginFamily':'plugin_family'
     }
@@ -225,12 +225,12 @@ class ReportItem:
 
             if attr == 'port': continue
 
-            if attr.startswith('exploit_famework'):
-                self.exploit_frameworks.append(value)
-
             attr = RI.na(attr)
             val = locals()[attr]
             
+            if attr.startswith('exploit_framework') and val:
+                self.exploit_frameworks.append(attr.split('_')[-1])
+
             if attr == 'risk_factor':
                 val = val.lower()
 
