@@ -41,6 +41,10 @@ args = [
     Argument('--debug',
         action='store_true',
         help='Enable debug output.'),
+    Argument('--create-port-splits',
+        action='store_true',
+        help='For each finding, dump a list of IPs by port affected ' \
+        'by a finding.'),
     Argument('--risk-factors', '-rfs',
         nargs='+',
         help='Space delimited list of risk factors to dump. Default: %(default)s',
@@ -52,8 +56,10 @@ args = [
 plugin_name_re = pname_re = re.compile('(\s|\W)+')
 
 def parse(input_file=None, output_directory=None, plugin_outputs=False,
-        disable_color_output=None, debug=None, risk_factors=RISK_FACTORS,
-        *args,**kwargs):
+        disable_color_output=None, debug=None, create_port_splits=False,
+        risk_factors=RISK_FACTORS, *args,**kwargs):
+
+    port_splits = create_port_splits
 
     if disable_color_output:
         color = False
@@ -537,6 +543,45 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
                 with open(fname,'w') as outfile:
 
                     outfile.write('\n'.join(lst)+'\n')
+
+            # ==================
+            # HANDLE PORT SPLITS
+            # ==================
+            '''
+            Creates a new directory that will contain a series of files named
+            like "<proto>_<port.number>.list". This is useful when passing the
+            list to Metasploit, which doesn't support sockets.
+            '''
+
+            if port_splits:
+
+                try:
+
+                    os.mkdir('port_splits')
+                    os.mkdir('fqdn_port_splits')
+
+                except:
+
+                    pass
+
+                for port in ports:
+
+                    port = str(port)
+                    os.chdir('port_splits')
+                    with open(f'{protocol}_{port}_ips.list','a+') as outfile:
+
+                        for socket in sockets:
+                            addr, sport = socket.split(':')
+                            if port == sport: outfile.write(addr+'\n')
+                    os.chdir('..')
+
+                    os.chdir('fqdn_port_splits')
+                    with open(f'{protocol}_{port}_fqdns.list','a+') as outfile:
+
+                        for socket in fsockets:
+                            addr, sport = socket.split(':')
+                            if port == sport: outfile.write(addr+'\n')
+                    os.chdir('..')
 
         os.chdir('../../')
 
