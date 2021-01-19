@@ -483,7 +483,7 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
             # HANDLE IPv4 ADDRESSES
             # =====================
 
-            ips = [str(ip) for ip in set(ips)]
+            ips = [str(ip) for ip in sorted(set(ips))]
             finding_index[sev][ri.plugin_name]['ip_count'] = len(ips)
 
             # ===================
@@ -492,7 +492,7 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
 
             sorted_sockets = []
             for ip in ips:
-                for s in [s for s in sorted(sockets) if s.startswith(ip)]:
+                for s in [s for s in sockets if s.startswith(ip)]:
                     if not s in sorted_sockets: sorted_sockets.append(s)
             sockets = sorted_sockets
 
