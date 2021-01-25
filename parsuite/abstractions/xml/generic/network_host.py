@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
-from re import search
+from re import search,match,compile
 from sys import exit
 from parsuite import decorators
 import pdb
+from copy import copy
+from netaddr import EUI as MAC, IPAddress
 
 ve = decorators.validate_lxml_module
 
@@ -78,11 +80,13 @@ class Service:
     '''
 
     ATTRIBUTES = ['name','conf', 'extrainfo', 'method','version','product',
-        'tunnel','proto','rpcnum','hostname','ostype','devicetype']
+        'tunnel','proto','rpcnum','hostname','ostype','devicetype',
+        'servicefp']
 
     def __init__(self,name,conf=None,extrainfo=None,method=None,
             version=None,product=None,tunnel=None,proto=None,
-            rpcnum=None,hostname=None,ostype=None,devicetype=None):
+            rpcnum=None,hostname=None,ostype=None,devicetype=None,
+            servicefp=None):
 
         self.name = name
         self.conf = conf
@@ -96,6 +100,7 @@ class Service:
         self.hostname = hostname
         self.ostype = ostype
         self.devicetype = devicetype
+        self.servicefp = servicefp
 
     def __eq__(self,val):
         if self.name == val: return True
@@ -160,7 +165,7 @@ class PortDict(dict):
 
     VALID_PROTOCOLS = ['tcp','udp','sctp','ip','icmp']
 
-    def __init__(self,protocol):
+    def __init__(self, protocol):
         '''Initialize a PortDict object. Protocol determines the
         protocol associated with the port list.
         '''
@@ -172,6 +177,17 @@ class PortDict(dict):
             )
         
         self.protocol = protocol
+
+    def __reduce__(self):
+
+        # https://docs.python.org/3/library/pickle.html#object.__reduce__
+        return (
+            self.__class__,
+            (self.protocol,),
+            None,
+            None,
+            iter(self.items())
+        )
 
     def __setitem__(self,key,value):
         '''Override __setitem__ to assure the key is an integervalue.
@@ -259,8 +275,6 @@ class PortList(list):
 
             return ports
 
-
-
 class Host:
     '''Produces objects that resemble an Nmap host.
     '''
@@ -292,18 +306,27 @@ class Host:
         self.ip_ports = ip_ports
 
         self.sctp_ports = sctp_ports
-        self.ipv6_address = ipv6_address
+        self.mac_address = mac_address
         self.ipv4_address = ipv4_address
+        self.ipv6_address = ipv6_address
+
+        self.parsed_mac  = None
+        self.parsed_ipv4 = None
+        self.parsed_ipv6 = None
+
+        if self.mac_address:
+            self.parsed_mac = MAC(self.mac_address)
 
         # List of IP addresses for quick reference should a given host
         # have both an IPv4 and IPV6 address
         ips = []
         if self.ipv4_address:
             ips.append(self.ipv4_address)
+            self.parsed_ipv4 = IPAddress(self.ipv4_address)
         if self.ipv6_address:
             ips.append(self.ipv6_address)
+            self.parsed_ipv6 = IPAddress(self.ipv6_address)
         self.ip_addresses = ips
-            
 
         # Each hostname is in a hostname element, a child of the 
         # hostnames element for a host
@@ -314,7 +337,6 @@ class Host:
 
         # host/stats[@reason]
         self.status_reason = status_reason
-        self.mac_address = mac_address
 
         # Initialize a portlist
         if not ports:
@@ -726,3 +748,84 @@ class FromXML:
 
         # Return a new service object
         return Service(**attrs)
+
+GNMAP_HOST_RE = \
+    compile('Host: (?P<host>.+) \((?P<hostname>.+)' \
+        '?\)\s+Status:\s+(?P<status>.+)')
+GNMAP_PORTS_RE = compile('(?P<port>[0-9]{1,5})/(?P<status>[a-z]' \
+    '{1,})/{1,}(?P<protocol>([a-z]|-)+)/')
+
+class FromGNMAP:
+    '''DRAGONS BE HERE
+
+    This code hasn't been tested at all. Was developing it before
+    descovering XSL transforms that made it significantly more
+    efficient to remove unwanted content from large XML files
+    '''
+
+    @staticmethod
+    def hostField(line):
+
+        matches = findall(GNMAP_HOST_RE, line)
+
+        if not matches:
+            raise ValueError(
+                f'Invalid host line provided: {line}'
+            )
+
+        address, hostname, status = matches[0]
+        address = IPAddress(address)
+        
+        kwargs={
+            f'ipv{address.version}_address':address,
+            'status':status.lower(),
+            'status-reason':'gnmap-unknown',
+        }
+
+        if hostname: kwargs['hostname'] = hostname.lower()
+
+        return Host(**kwargs)
+
+    @staticmethod
+    def iterPortFields(line,only_open=True):
+        
+        matches = findall(GNMAP_PORTS_RE, line)
+
+        if not matches:
+            raise ValueError(
+                f'Invalid port line provided: {line}'
+            )
+
+        for match in matches:
+            port, state, protocol = match[0:3]
+            if only_open and state != 'open': continue
+            port=Port(
+                    number=port, state=state,
+                    protocol=protocol, service='gnmap-unknown',
+                    reason='gnmap-unknown'
+                )
+            yield port
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

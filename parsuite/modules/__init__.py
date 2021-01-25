@@ -21,13 +21,24 @@ handles = {}
 
 base = m.string[m.start():m.end()]
 
-# Sort the file names to organize the modules by name at the main interface
-files = sorted(
-    [
-        f for f in Path(base).glob('**/*.py')
-        if f.is_file() and not f.name.startswith('_')
+files = []
+for d in Path(base).iterdir():
+
+    if not d.is_dir() or d.name.startswith('__'): continue
+
+    module_files = [
+        f for f in d.glob('*.py') if not f.name.startswith('_')
     ]
-)
+
+    if len(module_files) > 1:
+        raise Exception(
+            'Root module directory can contain only a single .py file.')
+
+    if module_files[0].is_file() and not module_files[0] \
+            .name.startswith('_'):
+        files.append(module_files[0])
+
+files = sorted(files)
 
 for f in files:
 

@@ -85,15 +85,15 @@ def validate_module(module):
     attrs = module.__dir__()
 
     assert 'help' in attrs and type(module.help) == str, (
-        'Module Error: Module must have a help string variable.'
+        f'Module Error: Module must have a help string variable. ({module})'
     )
 
     assert 'args' in attrs and type(module.args) == list, (
-        'Module Error: Module must have a list of arguments.'
+        f'Module Error: Module must have a list of arguments. ({module})'
     )
 
     assert 'parse' in attrs and type(module.parse) == types.FunctionType, (
-        'Module Error: Module must have a parse attribute'
+        f'Module Error: Module must have a parse attribute. ({module})'
     )
 
 def handle_output_directory(output_directory):
