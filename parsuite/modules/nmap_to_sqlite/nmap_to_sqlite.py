@@ -58,7 +58,7 @@ def purgeMigrations(base_dir):
         if f.name.startswith('_'): continue
         f.unlink()
 
-def configure(db_config,base_dir,shell=False):
+def configure(db_config,base_dir,migrate=True):
     '''Configure a fake Django application and initialize an SQLite
     database to capture the scan data.
     '''
@@ -87,8 +87,10 @@ def configure(db_config,base_dir,shell=False):
     # INITIALIZE THE DATABASE
     # =======================
 
-    execute_from_command_line([base_dir,'makemigrations'])
-    execute_from_command_line([base_dir,'migrate'])
+    if migrate:
+
+        execute_from_command_line([base_dir,'makemigrations'])
+        execute_from_command_line([base_dir,'migrate'])
 
 def processHost(host,import_info,models):
     '''
@@ -106,58 +108,99 @@ def processHost(host,import_info,models):
 
     dbhost, mac, ipv4, ipv6 = None, None, None, None
 
+    # ==================
+    # HANDLE MAC ADDRESS
+    # ==================
+    '''
+    - MAC is not associated with a host, but an IP address
+    - Collect that information now and prepare a record, if
+      necessary
+    '''
+
     if host.mac_address:
 
-        mac, mac_created = models.Address.objects.uoc(
+        mac, mac_created = models.MACAddress.objects.uoc(
                 import_info=import_info,
-                address=host.mac_address,
-                addrtype='mac')
+                address=host.mac_address)
 
-        if mac.host: dbhost = mac.host
+    # ===================
+    # HANDLE IP ADDRESSES
+    # ===================
 
+    # IPv4
     if host.ipv4_address:
 
-        ipv4, ipv4_created = models.Address.objects.uoc(
+        ipv4, ipv4_created = models.IPAddress.objects.uoc(
                 import_info=import_info,
                 address=host.ipv4_address,
                 addrtype='ipv4')
 
-        if not dbhost and ipv4.host: dbhost = ipv4.host
+        if not dbhost and ipv4.host:
+            dbhost = ipv4.host
 
+        # Update the IPv4 MAC
+        '''
+        - A MAC address can be associated with multiple IP addresses
+        - This accomidation is made in cases where ProxyARP is being
+          used for multiple upstream hosts or when a firewall/router
+          is responding to all ARP requests with its IP address
 
+        update() will create a historical record of the
+        '''
+        if mac and ipv4.address != mac:
+            try:
+                ipv4.update(import_info, mac_address=mac)
+            except:
+                pdb.set_trace()
+
+    # IPv6
     if host.ipv6_address:
 
-        ipv6, ipv6_created = models.Address.objects.uoc(
+        ipv6, ipv6_created = models.IPAddress.objects.uoc(
                 import_info=import_info,
-                address=host.ipv6_address,
+                ip_address=host.ipv6_address,
                 addrtype='ipv6')
 
-        if not dbhost and ipv6.host: dbhost = ipv6.uost
+        if not dbhost and ipv6.host:
+            dbhost = ipv6.host
 
-    # Handle new hosts
-    if dbhost: dbhost.save()
+        # Update the IPv6 MAC
+        # See IPv4 section above for notes on why this is a thing
+        if mac and ipv4.mac_address != mac:
+            ipv6.update(import_info, mac_address=mac)
+
+    # Skip if no addresses were recovered from the host
+    if not mac and not ipv4 and not ipv6:
+        return False
+
+    # ==================================================
+    # CREATE/UPDATE HOST AND ASSOCIATE WITH IP ADDRESSES
+    # ==================================================
+
+    if dbhost:
+        # Update the history for a given host and save the changes
+
+        dbhost.updateHistory(import_info)
+        dbhost.save()
+
     if not dbhost:
-
-        if not mac and not ipv4 and not ipv6:
-            return False
+        # Create a new host for the address
 
         dbhost = models.Host.objects.create(
             import_info=import_info,
             status=host.status,
             status_reason=host.status_reason)
 
-    # Associate the addresses
-    if mac:
-        mac.host = dbhost
-        mac.save()
-
-    if ipv4:
-        ipv4.host = dbhost
-        ipv4.save()
-
-    if ipv6:
-        ipv6.host = dbhost
-        ipv6.save()
+        # Associate the addresses with the new host
+        # No history occurs here because all future lookups for the
+        # IP addresses will return the previous dbhost
+        if ipv4:
+            ipv4.host = dbhost
+            ipv4.save()
+    
+        if ipv6:
+            ipv6.host = dbhost
+            ipv6.save()
 
     # ================
     # HANDLE HOSTNAMES
@@ -169,7 +212,6 @@ def processHost(host,import_info,models):
 
         if ipv4: addresses.append(ipv4)
         if ipv6: addresses.append(ipv6)
-        if mac:  addresses.append(mac)
 
         dbhn, created = models.Hostname.objects.uoc(
             import_info=import_info,
@@ -182,7 +224,7 @@ def processHost(host,import_info,models):
 
     for protocol in ['ip','tcp','udp','sctp']:
 
-        ports = getattr(host,f'{protocol}_ports')
+        ports = getattr(host, f'{protocol}_ports')
 
         for port in ports.values():
 
@@ -247,6 +289,13 @@ def processHost(host,import_info,models):
 
 
 def createFileInfo(path,models):
+    '''Create a FileInfo record. This a distinct FileIO object is
+    used because LXML supposedly implements compression to make
+    parsing faster when initiated from a string instead of a file.
+
+    - path - str/Path - Path to the file that is being fingerprinted
+    - models - reference to nmap.models
+    '''
 
     # =======================
     # GATHER FILE INFORMATION
@@ -350,11 +399,9 @@ def parse(input_files=None, sqlite_db_file=None, shell=None, verbose=None,
     # ====================
     
     purgeMigrations(base_dir)
-
-    esprint('Initializing the database')
+    esprint('Configuring the environment')
     print()
-
-    configure(db_config, base_dir, shell)
+    configure(db_config, base_dir, migrate=not shell)
 
     # ====================
     # HANDLE SHELL REQUEST
@@ -465,7 +512,7 @@ def parse(input_files=None, sqlite_db_file=None, shell=None, verbose=None,
                 # WRITE THE PRUNED FILE TO DISK
                 # =============================
 
-                esprint('Pruning finished! Writing pruned file to ' \
+                esprint('Finished! Writing pruned file to ' \
                     f'disk {out_prune}')
 
                 with open(out_prune, 'wb+') as outfile:
@@ -485,13 +532,11 @@ def parse(input_files=None, sqlite_db_file=None, shell=None, verbose=None,
                 esprint(f'Failed to parse XML: {input_file}')
                 continue
 
-        # =====================
-        # HANDLE IMPORT HISTORY
-        # =====================
-
         # =======================================================
         # TRANSLATE THE TREE TO NMAP OBJECTS AND DUMP TO DATABASE
         # =======================================================
+
+        esprint('Populating the database. This may take some time.')
 
         # Host count for verbose output
         if verbose: count = 0

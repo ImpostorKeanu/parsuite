@@ -387,7 +387,7 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
         os.chdir(ri.risk_factor)
 
         if not Path(ri_dir).exists():
-            os.mkdir(ri_dir)
+            os.mkdir(str(ri_dir)[:250])
         os.chdir(ri_dir)
 
         # =====================

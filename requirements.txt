@@ -4,3 +4,4 @@ termcolor
 IPython
 nessrest
 jsbeautifier
+netinfo

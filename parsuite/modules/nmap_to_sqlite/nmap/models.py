@@ -10,7 +10,9 @@ import multiprocessing
 from tabulate import tabulate
 from re import compile
 from netaddr import *
+from netaddr import IPAddress as ipAddress
 from django.db.models import options
+from django.dispatch import receiver
 
 options.DEFAULT_NAMES = options.DEFAULT_NAMES + ('history_model', 'history_fk', )
 def handleNetaddrError(wrapped):
@@ -39,33 +41,124 @@ def handleNetaddrError(wrapped):
 MAC_REGEXP = compile('(?:[0-9a-fA-F]:?){12}')
 validateIP = validate_ipv46_address
 
-def validateMAC(value) -> bool:
+def validateMAC(value):
     '''Use a regex to validate the format of a MAC address.
 
     Returns a boolean.
     '''
 
-    return [False, True][re.match(MAC_REGEXP, value)]
+    # NOTE: Maybe expand this to check against the string version
+    # of the address to make sure no disparity exists between the
+    # two? Apply the ame logic to IP addresses if so.
+    if not re.match(MAC_REGEXP, value):
+        raise ValidationError(
+            f'Invalid MAC address supplied: {value}')
 
-def validateAddress(value) -> bool:
-    '''Validate a given MAC or IP address value.
+def updateInstanceHistory(instance, import_info):
+    '''Update the history table for a given DB instance.
 
-    Raises ValidationError upon failure.
+    The history table will contain a complete duplicate of the state
+    of the current object, thereby allowing us to review how it changes
+    over the course of multiple imports.
+
+    This is achieved by using attributes set in the Meta class of a
+    given model:
+
+    - history_model - A CLASS reference to the model that will be used
+    to track the history of the subject model. Upon create/update, the
+    instance of the subject model will be copied over into the history
+    model.
+    - history_fk - The field on the history class where the instance of
+    the subject class will be referenced, thereby creating a
+    relationship that can be used to access the current state of the
+    subject instance.
+
+    - instance - subject instance
+    - import_info - import_info object used to track the file/scan
+    information
     '''
 
-    try:
-        validateIP(value)
-        return True
-    except:
-        pass
+    # Ignore any instance that does not have a "history_fk" key
+    if not hasattr(instance._meta, 'history_fk'):
+        return None
 
-    if not validateMAC(value):
-        raise ValidationError(
-            f'Invalid address supplied: {value}')
+    # =================================
+    # CREATE THE HISTORY FOR THE OBJECT
+    # =================================
+
+    # Duplicate the current state of the object
+    # Each field is copied into a dictionary
+    fields = {
+            attr.name:getattr(instance,attr.name) for attr in
+            instance._meta.fields if not attr.name in ['id','int']
+        }
+
+    # Get the foreign key value from the current object from instance
+    # class. This will be the foreign key value set in the history
+    # table to allow a reference back to the updated object.
+    fields[instance._meta.history_fk]=instance
+    fields['import_info']=import_info
+
+    # Initialize and save the object
+    return instance._meta.history_model.objects.create(**fields)
+
+# =================
+# CONFIGURE SIGNALS
+# =================
+
+#@receiver(models.signals.post_init)
+def setupChangeDetection(sender, instance, **kwargs):
+    '''Initialize properties to determine if a given instance has been
+    changed from since being initialized at the model. The following
+    attributes are added to the instance:
+
+    _was_changed - Determines if the instance is changed at save
+    _was_new - Determines if the instance was new at post_init
+    _cached_fields - Dictionary of the current instance fields
+    '''
+
+    # Initialize attributes
+    instance._was_changed=False
+    instance._was_new=(instance.pk == None)
+    instance._cached_fields={}
+
+    # Populate the cache
+    for f in instance._meta.fields:
+
+        # Disregard the id
+        if f.name == 'id': continue
+        instance._cached_fields[f.name]=getattr(instance,f.name)
+
+#@receiver(models.signals.post_save)
+def updateChangeDetection(sender, instance, **kwargs):
+    '''Determine if the instance has changed since initialization.
+    '''
+
+    # Get a list of field keys
+    instance_field_keys = instance._cached_fields.keys()
+
+    # Only check for changes when the instance is not new
+    if not instance._was_new:
+
+        for field in instance._meta.fields:
+            # Iterate over each current field
+
+            # Check only fields that are present in the cache
+            if not field.name in instance_field_keys: continue
+
+            # Determine if a change happened
+            if instance._cached_fields[field.name] != field.name:
+                instance._was_changed = True
+                break
 
 class GOCManager(models.Manager):
     '''Shortcuts to get_or_create and update_or_create
-    Manager methods.
+    Manager methods. Also implements history updates when an instance
+    is managed using one of the following methods:
+
+    - create
+    - goc
+    - uoc
     '''
 
     def create(cls, import_info, *args, **kwargs):
@@ -74,52 +167,36 @@ class GOCManager(models.Manager):
         return instance
 
     def goc(cls, import_info, defaults=None, *args, **kwargs):
-        instance, created = super().get_or_create(defaults=defaults, *args, **kwargs)
+        instance, created = super().get_or_create(defaults=defaults,
+            *args, **kwargs)
         cls.updateHistory(instance, import_info)
         return instance, created
 
     def uoc(cls, import_info, defaults=None, *args, **kwargs):
-        instance, created = super().update_or_create(defaults=defaults, *args, **kwargs)
+        instance, created = super().update_or_create(defaults=defaults,
+            *args, **kwargs)
         cls.updateHistory(instance, import_info)
         return instance, created
 
+    def get_or_create(cls, *args, **kwargs):
+        return cls.goc(*args, **kwargs)
+
+    def update_or_create(cls, *args, **kwargs):
+        return cls.uoc(*args, **kwargs)
+
     @staticmethod
     def updateHistory(instance, import_info):
-
-        if not hasattr(instance._meta, 'history_fk'):
-            return None
-
-        # =================================
-        # CREATE THE HISTORY FOR THE OBJECT
-        # =================================
-
-        # Import history will contain a complete duplicate of the
-        # current instance, thereby allowing us to review how the
-        # state of that instance changes over the course of multiple
-        # imports
-
-        # Duplicate the current state of the object
-        # Each field is copied into a dictionary
-        fields = {
-                attr.name:getattr(instance,attr.name) for attr in
-                instance._meta.fields if attr.name != 'id'
-            }
-
-        # Get the foreign key value from the current object from instance
-        # class
-        fields[instance._meta.history_fk]=instance
-        fields['import_info']=import_info
-
-        # Initialize and save the object
-        record = instance._meta.history_model.objects.create(**fields)
-
-        print(instance, import_info, fields, record)
+        #if not instance._was_new or not instance._was_changed: return None
+        return updateInstanceHistory(instance, import_info)
 
 # ================
 # ImportInfo Model
 # ================
 
 class ImportInfo(models.Model):
+    '''Information related to an import event. Maintains a hashsum
+    of a given file, along with file path.
+    '''
 
     file_path = models.CharField(
         max_length=1000,
@@ -140,19 +217,24 @@ class ImportInfo(models.Model):
 
     def __repr__(self):
 
-        return '<ImportInfo id=({}) file_path=("{}") sha256sum=("{}")>'.format(
-            self.id,
-            self.file_path,
-            self.sha256sum)
+        return '<ImportInfo id=({}) file_path=("{}") sha256sum=("{}' \
+            '")>'.format(
+                self.id,
+                self.file_path,
+                self.sha256sum)
 
 class BaseHistoryModel(models.Model):
+    '''History model from which all history tables will inherit.
+    It provides a relationship to the import_info table, providing
+    an index of where the information came from as well as a stateful
+    history of how the object has changed over imports.
+    '''
 
-    objects = GOCManager()
+    objects = models.Manager()
 
     import_info = models.ForeignKey(
         ImportInfo,
-        null=True,
-        on_delete=models.SET_NULL)
+        on_delete=models.CASCADE)
 
     class Meta:
         abstract = True
@@ -164,6 +246,9 @@ class BaseModel(models.Model):
     class Meta:
         abstract = True
 
+    def updateHistory(self, import_info):
+        return updateInstanceHistory(self, import_info)
+
 # =============
 # ADDRESS MODEL
 # =============
@@ -171,7 +256,6 @@ class BaseModel(models.Model):
 ADDRESS_TYPE_CHOICES=(
     ('ipv4','ipv4',),
     ('ipv6','ipv6',),
-    ('mac','mac',),
 )
 
 def addressToInt(wrapped):
@@ -194,7 +278,7 @@ def addressToInt(wrapped):
             else:
 
                 # Try IP address otherwise
-                i = int(IPAddress(kwargs['address']))
+                i = int(ipAddress(kwargs['address']))
 
 
             kwargs['int'] = i
@@ -212,53 +296,40 @@ class AddressManager(GOCManager):
     '''
 
     @addressToInt
-    def get(self, **kwargs):
+    def get(self, *args, **kwargs):
         return super().get(**kwargs)
 
     @addressToInt
-    def filter(self, **kwargs):
-        return super().filter(**kwargs)
+    def filter(self, *args, **kwargs):
+        return super().filter(*args,**kwargs)
 
-class Address(models.Model):
+class BaseAddressModel(models.Model):
+    '''A base model from which both Internet Protocol (IP) and
+    Media Access Control (MAC) addresses can be derived. All instances
+    can be associated with a host and must be represented as integer
+    value, which is used for uniqueness and searching for efficiency.
+    '''
 
     objects = AddressManager()
-
-    import_info = models.ForeignKey(
-        ImportInfo,
-        null=True,
-        on_delete=models.SET_NULL)
-
-    address = models.CharField(
-        max_length=17,
-        validators=[validateAddress])
 
     int = models.PositiveBigIntegerField(
         null=True,
         unique=True)
 
-    addrtype = models.CharField(
-        max_length=4,
-        choices=ADDRESS_TYPE_CHOICES,
-        default='ipv4')
-
-    vendor = models.CharField(null=True,
-        max_length=1000)
-
-    host = models.ForeignKey('Host',
-        on_delete=models.CASCADE,
-        related_name='addresses',
-        null=True)
+    class Meta:
+        abstract = True
 
     @property
-    def type(self):
-        '''Shortcut to the addrtype attribute defined by the
-        NMap dtd.
+    def classification(self):
+        '''Return the string classification for a given IPAddress. None
+        is returned when the classifcation has not yet been derived
+        after setting `int_classification` and saving the instance.
         '''
 
-        return self.addrtype
+        for i, classification in IP_CATEGORY_CHOICES:
+            if i == self.int_classification: return classification
 
-    def __str__(self):
-        return self.address
+        return None
 
     @handleNetaddrError
     def save(self, **kwargs):
@@ -278,7 +349,7 @@ class Address(models.Model):
         save the object.
         '''
 
-        if self.addrtype == 'mac':
+        if isinstance(self, MACAddress):
 
             self.address = ':'.join(
                 str(EUI(self.int)).split('-')
@@ -286,9 +357,9 @@ class Address(models.Model):
 
         else:
 
-            self.address = str(
-                str(IPAddress(self.int))
-            )
+            ip = ipAddress(self.int)
+            self.int_classification = checkCategorisation(ip)
+            self.address = str(ip)
 
         return super().save(**kwargs)
 
@@ -297,20 +368,193 @@ class Address(models.Model):
         object.
         '''
 
-        if self.addrtype == 'mac':
+        if isinstance(self, MACAddress):
 
             self.int = int(EUI(self.address))
 
         else:
 
-            ip = IPAddress(self.address)
+            ip = ipAddress(self.address)
+            self.int_classification = checkCategorisation(ip)
             self.int = int(ip)
 
         return super().save(**kwargs)
 
+    def update(self, import_info, **kwargs):
+        updateInstanceHistory(self, import_info)
+        for k,v in kwargs.items():
+            setattr(self,k,v)
+        self.save()
+        return self
+
+def checkCategorisation(netaddr):
+
+    assert isinstance(netaddr,ipAddress),(
+        'netattr must be a netaddr.IPAddress object'
+    )
+
+    if   netaddr.is_unicast():   return 0
+    elif netaddr.is_multicast(): return 1
+    elif netaddr.is_private():   return 2
+    elif netaddr.is_reserved():  return 3
+
+class BaseMACAddressModel(BaseAddressModel):
+    '''Extend the BaseAddress model to include an address field
+    and vendor field.
+
+    Notes:
+    - It may be efficient to add a vendor table an a FK here
+    - No unique is enforced on address for performance reasons
+    '''
+
+    address = models.CharField(
+        max_length=17,
+        validators=[validateMAC])
+
+    vendor = models.CharField(null=True,
+        max_length=1000)
+
+    class Meta:
+        abstract = True
+
+class MACAddressHistory(BaseHistoryModel,BaseMACAddressModel):
+    '''Historical model for MAC addresses.
+    '''
+
+    # overriding to avoid duplicate records
+    # address can be retrieved via fk
+    int = None
+    address = models.ForeignKey(
+        'nmap.MACAddress',
+        on_delete = models.CASCADE,
+        related_name='history')
+
+
+    def __repr__(self):
+
+        return '<MACAddressHistory address=("{}")>'.format(
+            self.address
+        )
+
+    def save(self, **kwargs):
+        return super(BaseAddressModel, self).save(**kwargs)
+
+class MACAddress(BaseMACAddressModel):
+    '''Final MACAddress model with a Meta class that allows the
+    history model to produce recors.
+    '''
+
+    class Meta:
+        history_model = MACAddressHistory
+        history_fk = 'address'
+
+IP_CATEGORY_CHOICES = (
+    (0,'unicast',),
+    (1,'multicast',),
+    (2,'private',),
+    (3,'reserved',),
+)
+
+class BaseIPAddressModel(BaseAddressModel):
+    '''Extend the BaseAddressModel for IP addresses.
+    '''
+
+    # Selection for type: ipv4, or ipv6
+    addrtype = models.CharField(
+        max_length=4,
+        choices=ADDRESS_TYPE_CHOICES)
+
+    # Address value with a max length of 15 and an IP address validator
+    address = models.CharField(
+        max_length=15,
+        validators=[validateIP])
+
+    # Associated MAC address, if present. An IP address can be represented
+    # in an Nmap file without a MAC adress if the target IP was not pinged
+    mac_address = models.ForeignKey(
+        MACAddress,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name='ip_addresses')
+
+    # Host associated with the IP address
+    host = models.ForeignKey('nmap.Host',
+        on_delete=models.CASCADE,
+        related_name='ip_addresses',
+        null=True)
+
+    int_classification = models.PositiveIntegerField(
+        null=True,
+        choices=IP_CATEGORY_CHOICES)
+
+    class Meta:
+        abstract = True
+
+    @property
+    def type(self):
+        '''Shortcut to the addrtype attribute defined by the
+        NMap dtd.
+        '''
+
+        return self.addrtype
+
+    def __str__(self):
+        return self.address
+
+class IPAddressHistory(BaseHistoryModel,BaseIPAddressModel):
+    '''Historical model for IP addresses.
+    '''
+
+    # Override the host field to avoid relationship name
+    # collisions
+    host = models.ForeignKey('nmap.Host',
+        on_delete=models.CASCADE,
+        related_name='ip_address_host',
+        null=True)
+
+    # Override the int field such that multiple instances
+    # can reside in the history table
+    int = None
+    #int = models.PositiveBigIntegerField(
+    #    null=True,
+    #    unique=False)
+
+    # FK back to the original address
+    address = models.ForeignKey(
+        'nmap.IPAddress',
+        on_delete = models.CASCADE,
+        related_name='history')
+
+    mac_address = models.ForeignKey(
+        MACAddress,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name='mac_address_history')
+
+    def __repr__(self):
+
+        return '<IPAddressHistory address=("{}")>'.format(
+            self.address
+        )
+
+    def save(self, **kwargs):
+        return super(BaseAddressModel, self).save(**kwargs)
+
+class IPAddress(BaseIPAddressModel):
+    '''IP address model to bind together the history model and
+    foreign key.
+    '''
+
+    class Meta:
+        history_model = IPAddressHistory
+        history_fk = 'address'
+
 # ==============
 # HOSTNAME MODEL
 # ==============
+'''Hostnames do not have a history table. Import info is captured as
+a foreign key in the Hostname table.
+'''
 
 class Hostname(models.Model):
 
@@ -324,8 +568,8 @@ class Hostname(models.Model):
     name = models.CharField(max_length=2000,
         unique=True)
 
-    addresses = models.ManyToManyField(Address,
-        related_query_name='addresses',
+    addresses = models.ManyToManyField(IPAddress,
+        related_query_name='ip_addresses',
         related_name='hostnames')
 
     def __repr__(self):
@@ -365,12 +609,12 @@ class BaseHostModel(BaseModel):
                     self.status,
                     self.status_reason)
 
-class HostHistory(BaseHostModel,BaseHistoryModel,):
+class HostHistory(BaseHistoryModel,BaseHostModel):
 
     host = models.ForeignKey(
         'nmap.Host',
         on_delete = models.CASCADE,
-        related_name='hosts')
+        related_name='history')
 
     def __repr__(self):
 
@@ -385,42 +629,6 @@ class Host(BaseHostModel):
     class Meta:
         history_model = HostHistory
         history_fk = 'host'
-
-    def toTable(self,protocols=['tcp'],show_id=False):
-
-        addresses, port_rows = [], []
-
-        for address in self.addresses.all():
-            addresses.append(str(address))
-
-            if protocols:
-                qs = Q(protocol=protocols[0])
-                [qs | Q(protocol=p) for p in protocols[1:]]
-                port_rows = (p.toRow() for p in address.ports.filter(qs))
-        
-        addresses = ", ".join(
-            (a.address for a in self.addresses.all())
-        ) + ' (status: {} reason: {})'.format(
-            self.status,
-            self.status_reason
-        )
-
-        if show_id: addresses = f'[{self.id}] '+addresses
-
-        header = addresses
-        if protocols:
-            border = '-'*len(addresses)
-            header = '{border}\n{addresses}\n' \
-                '{border}\n'.format(
-                    border=border,
-                    addresses=addresses,
-                    status=self.status,
-                    reason=self.status_reason
-                )
-
-        return header+tabulate(port_rows,
-                tablefmt='plain',
-                headers=Port.ROW_HEADERS)
 
 # ==========
 # PORT MODEL
@@ -441,9 +649,9 @@ class BasePortModel(BaseModel):
     protocol = models.CharField(max_length=4,
         choices = PORT_PROTOCOL_CHOICES)
 
-    address = models.ForeignKey(Address,
+    address = models.ForeignKey(IPAddress,
         on_delete=models.CASCADE,
-        related_query_name='addresses',
+        related_query_name='ip_addresses',
         related_name='ports')
 
     class Meta:
@@ -468,14 +676,16 @@ class BasePortModel(BaseModel):
                     self.state,
                     self.reason)
 
-class PortHistory(BasePortModel,BaseHistoryModel):
+class PortHistory(BaseHistoryModel,BasePortModel):
 
-    address = models.ForeignKey(Address,
-        on_delete=models.CASCADE)
+    address = models.ForeignKey(IPAddress,
+        on_delete=models.CASCADE,
+        related_name='port_history')
 
     port = models.ForeignKey(
         'nmap.Port',
-        on_delete = models.CASCADE)
+        on_delete = models.CASCADE,
+        related_name='history')
 
     class Meta:
         constraints = []
@@ -490,6 +700,11 @@ class PortHistory(BasePortModel,BaseHistoryModel):
                     self.reason)
 
 class Port(BasePortModel):
+
+    address = models.ForeignKey(IPAddress,
+        on_delete=models.CASCADE,
+        related_query_name='ip_addresses',
+        related_name='ports')
 
     class Meta(BasePortModel.Meta):
         history_model = PortHistory
@@ -516,14 +731,15 @@ class BaseScriptModel(BaseModel):
     class Meta:
         abstract = True
 
-class ScriptHistory(BaseScriptModel, BaseHistoryModel):
+class ScriptHistory(BaseHistoryModel,BaseScriptModel):
 
     port = models.ForeignKey(Port,
         on_delete=models.CASCADE)
 
     script = models.ForeignKey(
         'nmap.Script',
-        on_delete = models.CASCADE)
+        on_delete = models.CASCADE,
+        related_name='history')
 
 class Script(BaseScriptModel):
 
@@ -582,11 +798,12 @@ class BaseServiceModel(BaseModel):
                 self.extrainfo,
                 self.proto)
 
-class ServiceHistory(BaseServiceModel, BaseHistoryModel):
+class ServiceHistory(BaseHistoryModel,BaseServiceModel):
 
     service = models.ForeignKey(
         'nmap.Service',
-        on_delete=models.CASCADE)
+        on_delete=models.CASCADE,
+        related_name='history')
 
     hostname = models.ForeignKey(
         Hostname,

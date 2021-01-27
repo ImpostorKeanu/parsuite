@@ -13,6 +13,7 @@
             <xsl:copy-of select="/nmaprun/scaninfo"/>
             <xsl:copy-of select="/nmaprun/taskbegin"/>
             <xsl:copy-of select="/nmaprun/taskend"/>
+            <!-- Capture all "up" hosts in ping scans -->
             <xsl:if test="/nmaprun/taskbegin[@task='Ping Scan']">
                 <xsl:for-each select="//host/status[@state='up']">
                     <xsl:copy-of select=".."/>
@@ -21,7 +22,9 @@
             <xsl:if test="/nmaprun/taskbegin[@task!='Ping Scan']">
                 <xsl:for-each select="//host">
                     <xsl:choose>
-                    <xsl:when test="./ports/port/state[@state='open']">
+                        <!-- When the host has open ports -->
+                        <!-- Note that "closed" actually indicates that the port is accessible but no service is listening -->
+                    <xsl:when test="./ports/port/state[@state='open' or @state='closed']">
                         <xsl:copy select=".">
                             <xsl:copy-of select="@*"/>
                             <xsl:copy-of select="./status"/>
@@ -38,6 +41,7 @@
                             </xsl:for-each>
                         </xsl:copy>
                     </xsl:when>
+                    <!-- When no ports are open but hostnames are available -->
                     <xsl:when test=".//hostname">
                         <xsl:copy select="../..">
                             <xsl:copy-of select="@*"/>
