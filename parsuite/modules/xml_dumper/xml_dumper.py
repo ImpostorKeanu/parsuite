@@ -172,7 +172,7 @@ def parse(input_files, format, all_addresses, fqdns,
         try:
             esprint(f'Parsing: {input_file}')
             tree = ET.parse(input_file)
-        except Exception as e:
+        except (Exception,AsertionError) as e:
             esprint(f'Failed to parse: {input_file}\n\n{e}\n\nSkipping...')
             continue
 
