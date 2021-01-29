@@ -168,8 +168,14 @@ def parse(input_files, format, all_addresses, fqdns,
       # {address:Host}
     final_report = {}
     for input_file in input_files:
-        
-        tree = ET.parse(input_file)
+
+        try:
+            esprint(f'Parsing: {input_file}')
+            tree = ET.parse(input_file)
+        except Exception as e:
+            esprint(f'Failed to parse: {input_file}\n\n{e}\n\nSkipping...')
+            continue
+
         fingerprint = helpers.fingerprint_xml(tree)
 
         # Reference to globas is a means of getting a handle on the appropriate
