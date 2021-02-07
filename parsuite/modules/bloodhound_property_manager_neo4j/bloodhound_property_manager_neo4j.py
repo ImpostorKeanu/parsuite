@@ -136,12 +136,12 @@ class Neo4j:
         class during initialization.
         '''
 
-        # ============================================================
-        # MAKE SURE STRING VALUES ARE ESCAPED BEFORE BEING PASSED BACK
-        # ============================================================
-
         qpv = record.query_property_value
         upv = record.update_property_value
+
+        # =====================
+        # HANDLE BOOLEAN VALUES
+        # =====================
 
         if qpv == 'true': qpv = True
         if upv == 'true': upv = True
@@ -149,10 +149,12 @@ class Neo4j:
         if qpv == 'false': qpv = False
         if upv == 'false': upv = False
 
+        # ============================================================
+        # MAKE SURE STRING VALUES ARE ESCAPED BEFORE BEING PASSED BACK
+        # ============================================================
+
         if isinstance(qpv,str): qpv = '"'+qpv+'"'
         if isinstance(upv,str): upv = '"'+upv+'"'
-
-        print(qpv,upv)
 
         # ========================
         # APPLY THE DESIRED CHANGE
