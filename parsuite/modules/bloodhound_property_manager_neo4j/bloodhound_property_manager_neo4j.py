@@ -143,8 +143,16 @@ class Neo4j:
         qpv = record.query_property_value
         upv = record.update_property_value
 
+        if qpv == 'true': qpv = True
+        if upv == 'true': upv = True
+
+        if qpv == 'false': qpv = False
+        if upv == 'false': upv = False
+
         if isinstance(qpv,str): qpv = '"'+qpv+'"'
         if isinstance(upv,str): upv = '"'+upv+'"'
+
+        print(qpv,upv)
 
         # ========================
         # APPLY THE DESIRED CHANGE
