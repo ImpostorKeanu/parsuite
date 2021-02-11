@@ -145,7 +145,12 @@ class Port:
         self.number = number
         self.state = state
         self.reason = reason
-        self.protocol = protocol
+
+        # ================================================================
+        # BUG: Appears protocol can come through with all caps on occasion
+        # ================================================================
+
+        self.protocol = protocol.lower() if protocol else protocol
         self.service = service
         self.scripts = scripts
         self.portid = self.number

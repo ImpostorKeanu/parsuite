@@ -5,3 +5,4 @@ IPython
 nessrest
 jsbeautifier
 netinfo
+neo4j>=4.2.1
