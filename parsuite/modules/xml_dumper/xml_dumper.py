@@ -39,7 +39,7 @@ args = [
     Argument(
         '--transport-layer','-tl',
         action='store_true',
-        help='''When printing URIs, use the application layer for
+        help='''When printing URIs, use the transport layer for
         the scheme component, e.g. tcp instead of http'''
     ),
     Argument(
