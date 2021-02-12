@@ -32,6 +32,9 @@ if __name__ == '__main__':
     # strap arguments from modules as argument groups
     esprint('Loading modules')
 
+    sub = subparsers.add_parser('module_table',
+        help='Dump module table in Markdown (for documentation)')
+
     for handle,module in modules.handles.items():
 
         helpers.validate_module(module)
@@ -52,17 +55,25 @@ if __name__ == '__main__':
                 )
                 add_args(group,arg)
 
-
             else:
 
                 sub.add_argument(*arg.pargs, **arg.kwargs)
 
     args = ap.parse_args()
     
+    if args.module == 'module_table':
+
+        print('|Module|Description|\n|--|--|')
+        for handle,module in modules.handles.items():
+            h = ' '.join(module.help.strip().split('\n'))
+            print(f'|{handle}|{h}|')
+        exit()           
+            
     if 'input_file' in args:
         helpers.validate_input_file(args.input_file)
     elif 'input_files' in args:
         helpers.validate_input_files(args.input_files)
+
 
     esprint(f'Executing module: {args.module}')
 
