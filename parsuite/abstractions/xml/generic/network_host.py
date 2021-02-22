@@ -284,6 +284,13 @@ class Host:
     '''Produces objects that resemble an Nmap host.
     '''
 
+    PORT_PROTOCOLS = [
+        'tcp',
+        'udp',
+        'ip',
+        'sctp',
+    ]
+
     def __eq__(self, value):
 
         if id(self) == id(value) or value in self.ip_addresses or (
@@ -302,15 +309,15 @@ class Host:
                 if k != 'ports' and k.endswith('ports')}.items():
             if v and v.__class__ != PortDict:
                 raise TypeError('Port arguments must be of type PortDict')
-
-        self.tcp_ports = tcp_ports
-        self.udp_ports = udp_ports
         
         # Technically protocols: https://nmap.org/book/scan-methods-ip-protocol-scan.htm
         # Nmap refers to them as ports though, so let's stick with that
+        self.tcp_ports = tcp_ports
+        self.udp_ports = udp_ports
         self.ip_ports = ip_ports
-
         self.sctp_ports = sctp_ports
+
+        # IP/MAC Addresses
         self.mac_address = mac_address
         self.ipv4_address = ipv4_address
         self.ipv6_address = ipv6_address
@@ -363,10 +370,16 @@ class Host:
                 self.__setattr__(attr,PortDict(protocol=attr.split('_')[0]))
 
     @vp
-    def append_port(self,port):
+    def append_port(self, port):
         '''Pass a port to the Host and allow it to add it to the
         appropriate PortList according to the protocol.
         '''
+
+        if not port.protocol in self.PORT_PROTOCOLS:
+            raise InvalidProtocolError(
+                'Unsupported protocol provided while appending port to host: ' + \
+                port.protocol
+            )
 
         self.__getattribute__(port.protocol+'_ports').append_port(port)
         self.ports.append(port)
@@ -810,27 +823,5 @@ class FromGNMAP:
                     reason='gnmap-unknown'
                 )
             yield port
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 

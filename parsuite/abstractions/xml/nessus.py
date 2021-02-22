@@ -1,5 +1,6 @@
 from parsuite.abstractions.xml.generic import network_host as NH
 from parsuite.abstractions.xml.generic.network_host import Host, PortDict, PortList
+from parsuite.abstractions.xml.generic.exceptions import *
 from parsuite import decorators
 import re
 
@@ -122,6 +123,8 @@ class ReportHost(NH.Host):
 
     HOST_PROPERTY_ATTRIBUTES = ['mac-address','operating-system',
        'netbios-name','host-fqdn','host-rdns','host-ip']
+
+    PORT_PROTOCOLS = NH.Host.PORT_PROTOCOLS+['icmp']
 
     def __init__(self,name,operating_system=None,mac_address=None,
         netbios_name=None,rdns=None,ip=None,fqdn=None,

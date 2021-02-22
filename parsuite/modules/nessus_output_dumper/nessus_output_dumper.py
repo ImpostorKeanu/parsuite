@@ -242,6 +242,12 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
             if ri.risk_factor not in risk_factors: continue
 
             if not ri.protocol in protocols:
+                if not ri.protocol.lower() in ReportHost.PORT_PROTOCOLS:
+                    esprint(
+                        'Unknown protocol provided. Skipping: {}' \
+                        .format(ri.protocol)
+                    )
+                    continue
                 protocols.append(ri.protocol)
 
             if not plugin_id in alerted:
