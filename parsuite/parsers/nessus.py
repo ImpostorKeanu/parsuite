@@ -91,7 +91,7 @@ def parse_nessus(tree,no_services):
             ipv6_address = host_ip
         
         mac = rhost.find('.//tag[@name="mac-address"]')
-        if mac != None: mac = mac.text
+        if mac != None: mac = mac.text.split('\n')[0]
         
         hostnames = []
         for k in ['host-fqdn','host-rdns']:
@@ -119,6 +119,14 @@ def parse_nessus(tree,no_services):
             if port == 0: continue
             
             service = NH.Service(name=service)
+
+            # ========================
+            # TODO: MAKE THIS NOT YOLO
+            # Refine supported protocols.
+            # ==========================
+
+            if not protocol.lower() in host.PORT_PROTOCOLS:
+                continue
 
             host.append_port(
                 Port(

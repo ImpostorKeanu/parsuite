@@ -6,6 +6,7 @@ from parsuite import decorators
 import pdb
 from copy import copy
 from netaddr import EUI as MAC, IPAddress
+from parsuite.abstractions.xml.generic.exceptions import *
 
 ve = decorators.validate_lxml_module
 

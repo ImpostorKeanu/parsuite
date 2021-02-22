@@ -2,5 +2,5 @@
 class InvalidPortError(Exception):
     pass
 
-class InvalidPotocolError(Exception):
+class InvalidProtocolError(Exception):
     pass
