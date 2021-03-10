@@ -1,3 +1,19 @@
+# Example Command
+
+This command would ingest the records in `weblogic.csv` and apply the updates
+to the records hosted in the Neo4J server referenced by `--bolt-uri`.
+
+```
+parsuite bloodhound_property_manager_neo4j -ifs weblogic.csv --bolt-uri bolt://192.168.1.5:7687 --username neo4j --password password
+```
+
+The CSV file may contain something like the following:
+
+```csv
+node_type,query_property_name,query_property_value,update_property_name,update_property_value
+User,name,USER@SOMEDOMAIN.COM,owned,true
+```
+
 # CSV File Format Notes
 
 ## Raw Header
