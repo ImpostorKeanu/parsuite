@@ -24,32 +24,13 @@ node_type,query_property_name,query_property_value,update_property_name,update_p
 
 ## Explanation
 
-- `node_type` - Indicates the type of node that will be queried from the
-Neo4j database. Possible values (CASE SENSITIVE):
-
-```
-Computer
-Domain
-GPO
-GROUP
-OU
-USER
-```
-
-- `query_property_name` - The property on the `node_type` that that will
-be queried. For instance, you may want to look up `User` by `name`, so
-the value for this field would be `name`.
-- `query_property_value` - The value that will be searched against the
-`query_property_name` value. If you wanted to updated a user with the
-name `USER@SOMEDOMAIN.COM`, then that would be the value of one record
-here.
-- `update_property_name` - The name of the property to be updated on
-the value returned from the query described by `query_property_name`
-and `query_property_value`. If you wanted to set `USER@SOMEDOMAIN.COM`
-as owned, then you would supply the `owned` value to this field.
-- `update_property_value` - The value that will be set for this field
-on the target node. If you wanted to set the `owned` property of
-`USER@SOMEDOMAIN.COM` to true, you would set this field to `true`.
+|Field Name|Description|Notes|
+|--:|--:|--:|
+|`node_type`|Indicates the type of node that will be queried from the Neo4j database.| Possible values (**CASE SENSITIVE**):<br><br>Computer, Domain, GPO, Group, OU, User|
+|`query_property_name`|The property on the `node_type` that that will be queried.|For instance, you may want to look up `User` by `name`, so the value for this field would be `name`.|
+|`query_property_value`|The value that will be searched against the `query_property_name` value.|If you wanted to updated a user with the name `USER@SOMEDOMAIN.COM`, then that would be the value of one record here.|
+|`update_property_name`|The name of the property to be updated on the value returned from the query described by `query_property_name` and `query_property_value`.|If you wanted to set `USER@SOMEDOMAIN.COM` as owned, then you would supply the `owned` value to this field.|
+|`update_property_value`|The value that will be set for this field on the target node.|If you wanted to set the `owned` property of `USER@SOMEDOMAIN.COM` to true, you would set this field to `true`.|
 
 ## Example
 
