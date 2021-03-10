@@ -25,7 +25,7 @@ node_type,query_property_name,query_property_value,update_property_name,update_p
 ## Explanation
 
 |Field Name|Description|Notes|
-|--:|--:|--:|
+|---|---|---|
 |`node_type`|Indicates the type of node that will be queried from the Neo4j database.| Possible values (**CASE SENSITIVE**):<br><br>Computer, Domain, GPO, Group, OU, User|
 |`query_property_name`|The property on the `node_type` that that will be queried.|For instance, you may want to look up `User` by `name`, so the value for this field would be `name`.|
 |`query_property_value`|The value that will be searched against the `query_property_name` value.|If you wanted to updated a user with the name `USER@SOMEDOMAIN.COM`, then that would be the value of one record here.|
