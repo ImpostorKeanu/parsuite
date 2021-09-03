@@ -4,6 +4,9 @@ from importlib.util import spec_from_file_location,module_from_spec
 import inspect
 from re import match
 
+import warnings
+warnings.filterwarnings('ignore')
+
 # =====================================
 # GET THE PATH TO THE MODULES DIRECTORY
 # =====================================
@@ -30,9 +33,12 @@ for d in Path(base).iterdir():
         f for f in d.glob('*.py') if not f.name.startswith('_')
     ]
 
-    if len(module_files) > 1:
+    count = len(module_files)
+    if count < 1 or count > 1:
         raise Exception(
-            'Root module directory can contain only a single .py file.')
+            'Root module directories must contain a single .py file.'
+            f' {d}'
+        )
 
     if module_files[0].is_file() and not module_files[0] \
             .name.startswith('_'):
