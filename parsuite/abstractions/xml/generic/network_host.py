@@ -604,6 +604,12 @@ class Host:
                 .__getattribute__(transport_protocol+'_ports') \
                 .items():
 
+                # =================
+                # ENFORCE OPEN ONLY
+                # =================
+
+                if open_only and port.state != 'open': continue
+
                 # ==============
                 # DO PORT SEARCH
                 # ==============
