@@ -7,3 +7,4 @@ jsbeautifier
 netinfo
 netaddr==0.7.19
 neo4j>=4.2.1
+publicsuffix2

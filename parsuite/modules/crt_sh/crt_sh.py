@@ -53,7 +53,23 @@ def parse(queries=[], format='name_list', base_url='', pretty_print=True,
         # ================
 
         try:
-            buff.append(requests.get(base_url,params=params).json())
+            resp = requests.get(base_url,params=params)
+
+            if resp.status_code != 200:
+
+                esprint(
+                    f'Failed to query {query}; Bad status code: ' +
+                    str(resp.status_code)
+                )
+
+            elif resp.text and resp.text.find('Unsupported use') > -1:
+
+                esprint(f'Bad query detected: {query}\n\n{resp.text}\n\n')
+
+            else:
+
+                buff.append(resp.json())
+
         except Exception as e:
             esprint(f'Unhandled exception: {e}')
             esprint('Continuing to next query')
