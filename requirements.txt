@@ -1,3 +1,4 @@
+tabulate
 lxml
 colored==1.3.93
 termcolor
