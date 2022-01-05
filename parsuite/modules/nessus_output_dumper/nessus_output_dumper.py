@@ -11,9 +11,11 @@ from sys import exit
 import ipaddress
 from sys import stderr
 from tabulate import tabulate
+import IPython
 
 import logging
 LOG_FORMAT='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+RE_LETTERS = re.compile('[a-z]', re.I)
 logger = logging.getLogger('parsuite.nessus_output_dumper')
 handler = logging.StreamHandler(stderr)
 handler.setFormatter(logging.Formatter(LOG_FORMAT))
@@ -228,6 +230,7 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
     alerted = []
     for plugin_id in plugin_ids:
 
+        # Report hosts
         rhosts = {}
         protocols = []
         pid = plugin_id
@@ -388,20 +391,15 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
         # BUILD DIRECTORY STRUCTURE
         # =========================
 
-        if not Path(ri.risk_factor).exists():
-            os.mkdir(ri.risk_factor)
-        os.chdir(ri.risk_factor)
-
-        if not Path(ri_dir).exists():
-            os.mkdir(str(ri_dir)[:250])
-        os.chdir(ri_dir)
+        out_dir = Path(ri.risk_factor) / str(ri_dir)[:250]
+        out_dir.mkdir(parents=True, exist_ok=True)
 
         # =====================
         # WRITE CONTENT TO DISK
         # =====================
 
         # Write additional info
-        with open('additional_info.txt','w') as of:
+        with (out_dir / 'additional_info.txt').open('w') as of:
             of.write(ri.additional_info())
 
         # Iterate over each protocol
@@ -422,7 +420,7 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
                 # Prepare to handle plugin outputs
                 if plugin_outputs:
 
-                    plugin_outputs_file = open(f'{protocol}_plugin_outputs.txt','w')
+                    plugin_outputs_file = (outdir / f'{protocol}_plugin_outputs.txt').open('w')
 
                 for rhost in rhosts.values():
                     host_ips, host_fqdns = [], []
@@ -486,6 +484,7 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
             except Exception as e:
 
                 logger.debug(f'Unhandled exception occurred: {e}')
+                raise e
 
             finally:
 
@@ -546,7 +545,7 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
 
                 fname = f'{protocol}_{fmt}.list'
 
-                with open(fname,'w') as outfile:
+                with (out_dir / fname).open('a') as outfile:
 
                     outfile.write('\n'.join(lst)+'\n')
 
@@ -561,42 +560,34 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
 
             if port_splits:
 
-                try:
+                psplits_dir = out_dir / 'port_splits'
+                fpsplits_dir = out_dir / 'fqdn_port_splits'
 
-                    os.mkdir('port_splits')
-                    os.mkdir('fqdn_port_splits')
-
-                except:
-
-                    pass
+                psplits_dir.mkdir(parents=True, exist_ok=True)
+                fpsplits_dir.mkdir(parents=True, exist_ok=True)
 
                 for port in ports:
 
                     port = str(port)
-                    os.chdir('port_splits')
-                    with open(f'{protocol}_{port}_ips.list','a+') as outfile:
+                    with (psplits_dir / f'{protocol}_{port}_ips.list').open('a') as outfile:
 
                         for socket in sockets:
                             addr, sport = socket.split(':')
                             if port == sport: outfile.write(addr+'\n')
-                    os.chdir('..')
 
-                    os.chdir('fqdn_port_splits')
-                    with open(f'{protocol}_{port}_fqdns.list','a+') as outfile:
+                    with (ffpsplits_dir / '{protocol}_{port}_fqdns.list').open('a') as outfile:
 
                         for socket in fsockets:
                             addr, sport = socket.split(':')
                             if port == sport: outfile.write(addr+'\n')
-                    os.chdir('..')
 
-        os.chdir('../../')
-
-    os.chdir('additional_info')
+    adinfo_dir = out_dir / 'additional_info'
+    adinfo_dir.mkdir(parents=True, exist_ok=True)
 
     print()
 
     sprint('Writing report item index')
-    with open('report_item_index.txt','w') as outfile:
+    with (adinfo_dir / 'report_item_index.txt').open('w+') as outfile:
 
         rows = [['Risk Factor', 'Plugin ID', 'Count IPs', 'Count Sockets',
             'Count FQDNs', 'Count FQDN Sockets', 'Exploitable',
