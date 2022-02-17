@@ -12,10 +12,7 @@ ttps: []
   
 # Bulleted high level description. Please keep bullets brief.
 descriptions:
-  - Highly configurable BruteForce attack utility
-  - Capable of matching AD password policies.
-  - Multiprocessed.
-  - Can attack any protocol.
+  - Parse output files from various tools and frameworks.
   
 # Determines if the tool can be discussed publicly
 # Valid Values: true, false
