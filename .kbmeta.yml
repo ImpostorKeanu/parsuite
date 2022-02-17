@@ -8,9 +8,7 @@ maintainer:
 
 # TTP tags with the format: <MITRE Tactic>/<Technique>
 # URL for reference: https://attack.mitre.org/tactics/enterprise/
-#ttps:
-#  - credential_access/password_spraying
-#  - credential_access/credential_stuffing
+ttps: []
   
 # Bulleted high level description. Please keep bullets brief.
 descriptions:
