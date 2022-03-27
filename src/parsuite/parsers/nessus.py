@@ -123,7 +123,7 @@ def parse_nessus(tree, no_services, minimize_plugins=True):
 
         for eri in rhost.findall('.//ReportItem'):
 
-            ri = FromXML.report_item(eri)
+            ri = FromXML.report_item(eri, report_host=host)
 
             if ri.port.number == 0: continue
             
@@ -137,7 +137,8 @@ def parse_nessus(tree, no_services, minimize_plugins=True):
             if not ri.protocol.lower() in host.PORT_PROTOCOLS:
                 continue
 
-            ports = host.ports.get('protocol', ri.port.protocol) \
+            ports = host.ports \
+                .get('protocol', ri.port.protocol) \
                 .get('number', ri.port.number)
 
             if len(ports) > 0:
@@ -170,7 +171,7 @@ def parse_nessus(tree, no_services, minimize_plugins=True):
 
                     for attr, value in plugin.__dict__.items():
                         if value is not None and hasattr(ri, attr) and \
-                                attr in ReportItem.STANDARD_PROPERTIES:
+                                attr in ReportItem.MINIMAL_PROPERTIES:
                             setattr(ri, attr, None)
 
                 # Append the report item
@@ -188,6 +189,46 @@ def parse_nessus(tree, no_services, minimize_plugins=True):
 
         elif host.mac_address:
             report[host.mac_address] = host
+
+        # =========================
+        # FIND ALL SSL/TLS SERVICES
+        # =========================
+        '''
+        - Plugin 56984 enumerates SSL/TLS on all ports for
+          a given host.
+        '''
+
+        # Iterate over each report host
+        for ip, rhost in report.items():
+
+            # ===========================================
+            # GATHER PORT NUMBER / PROTOCOL FOR SSL PORTS
+            # ===========================================
+
+            # Capture a tuple for each port (port_number, port_protocol)
+            port_tups = []
+            for port in rhost.ports:
+
+                for ri in port.report_items:
+                    if ri.plugin_id == '56984':
+                        port_tups.append((ri.port.number, ri.protocol,))
+
+            # =============================================
+            # ITERATE EACH PORT AND ADD A WRAPPED ATTRIBUTE
+            # =============================================
+            '''
+            - wrapped attribute indicates that a port is using SSL/TLS.
+            '''
+
+            for port, protocol in port_tups:
+
+                for iport in rhost.ports.get('number', port):
+                    if not protocol == iport.protocol:
+                        continue
+                    for ri in iport.report_items:
+                        ri.wrapped = True
+                        if ri.svc_name == 'http':
+                            ri.svc_name = 'https'
 
     return report
 
