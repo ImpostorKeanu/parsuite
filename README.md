@@ -18,13 +18,10 @@ cd parsuite
 pip3 install -r requirements.txt
 ```
 
-## Adding to PATH (Debian)
-
-I use Parsuite enough to add it to my PATH variable like this:
+...or...
 
 ```
-mkdir ~/bin
-ln -s /path/to/parsuite.py ~/bin/parsuite
+pip3 install parsuite
 ```
 
 # Usage
