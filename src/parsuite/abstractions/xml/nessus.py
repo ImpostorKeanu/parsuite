@@ -466,17 +466,23 @@ class ReportItem(AttrDict):
 
         self.exploitable = self.exploit_available
 
-        # Determine if the report item is dealing with SSL/TLS
-        self.wrapped = False
-        for k in ['ssl','tls']:
+        # ========================
+        # SET THE TUNNEL ATTRIBUTE
+        # ========================
+        '''
+        - Indicates SSL/TLS
+        '''
 
-            wrapped = False
+        self.tunnel = False
+        for k in ['ssl', 'tls']:
+
+            tunnel = False
             if self.plugin_name.find(k) > -1 or \
                     self.plugin_name.find(k.upper()) > -1:
-                wrapped = True
-                self.wrapped = True
+                tunnel = True
+                self.tunnel = True
 
-            setattr(self, k, wrapped)
+            setattr(self, k, tunnel)
 
         if self.svc_name == 'www':
             self.svc_name = 'http'

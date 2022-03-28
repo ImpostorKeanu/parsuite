@@ -217,7 +217,7 @@ def parse_nessus(tree, no_services, minimize_plugins=True):
             # ITERATE EACH PORT AND ADD A WRAPPED ATTRIBUTE
             # =============================================
             '''
-            - wrapped attribute indicates that a port is using SSL/TLS.
+            - tunnel attribute indicates that a port is using SSL/TLS.
             '''
 
             for port, protocol in port_tups:
@@ -226,7 +226,7 @@ def parse_nessus(tree, no_services, minimize_plugins=True):
                     if not protocol == iport.protocol:
                         continue
                     for ri in iport.report_items:
-                        ri.wrapped = True
+                        ri.tunnel = True
                         if ri.svc_name == 'http':
                             ri.svc_name = 'https'
 

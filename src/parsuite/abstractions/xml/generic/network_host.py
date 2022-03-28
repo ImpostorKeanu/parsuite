@@ -6,7 +6,7 @@ from parsuite import decorators
 import pdb
 from copy import copy
 from netaddr import EUI as MAC, IPAddress
-from parsuite.helpers import slugified, SLUGIFY_DEFAULTS_TAG
+from parsuite.helpers import slugified, SLUGIFY_DEFAULTS_TAG, AttrDict
 from parsuite.abstractions.xml.generic.exceptions import *
 from functools import wraps
 from copy import deepcopy
@@ -30,7 +30,7 @@ def validate_port(func):
 
 vp = validate_port
 
-class Script:
+class Script(AttrDict):
     '''A basic representation of an Nmap script.
 
     nmap.dtd specification:
@@ -41,6 +41,12 @@ class Script:
 	output	CDATA	#REQUIRED
     >
     '''
+
+    DICT_ATTRS = [
+        'id',
+        'id_slug',
+        'san_dns_names',
+        'output']
 
     def __init__(self,id,output):
 
@@ -63,7 +69,7 @@ class Script:
                 ]).split(', ')
         return dns_names
 
-class Service:
+class Service(AttrDict):
     '''A basic representation of an Nmap service.
 
     nmap.dtd specification:
@@ -88,11 +94,11 @@ class Service:
     >
     '''
 
-    ATTRIBUTES = ['name','conf', 'extrainfo', 'method','version','product',
+    ATTRIBUTES = ['name','conf','extrainfo','method','version','product',
         'tunnel','proto','rpcnum','hostname','ostype','devicetype',
         'servicefp']
 
-    SLUG_ATTRS = ['name_slug', 'product_slug', 'ostype_slug', 
+    DICT_ATTRS = ATTRIBUTES + ['name_slug', 'product_slug', 'ostype_slug', 
         'version_tag_slug', 'product_tag_slug', 'ostype_tag_slug',
         'devicetype_tag_slug']
 
@@ -102,13 +108,13 @@ class Service:
             hostname:str=None, ostype:str=None, devicetype:str=None,
             servicefp=None):
 
-        self.name = name
+        self._name = name
+        self._tunnel = tunnel
         self.conf = conf
         self.extrainfo = extrainfo
         self.method = method
         self.version = version
         self.product = product
-        self.tunnel = tunnel
         self.proto = proto
         self.rpcnum = rpcnum
         self.hostname = hostname
@@ -151,6 +157,29 @@ class Service:
     def devicetype_tag_slug(self):
         return self.devicetype
 
+    @property
+    def tunnel(self):
+        return self._tunnel
+
+    @tunnel.setter
+    def tunnel(self, value:str):
+        self._tunnel = value
+        if self._tunnel and self.name == 'http':
+            self._name = 'https'
+
+    @property
+    def name(self):
+        if self._name == 'http' and self.tunnel:
+            self._name = 'https'
+        return self._name
+
+    @name.setter
+    def name(self, value:str):
+        if value == 'http' and self.tunnel:
+            self._name = 'https'
+        else:
+            self._name = value
+
     def __eq__(self,val):
         if self.name == val: return True
         else: return False
@@ -162,16 +191,6 @@ class Service:
         if self.version: row.append(self.version)
         if self.extrainfo: row.append(self.extrainfo)
         return row
-
-    @property
-    def __dict__(self):
-
-        output = dict()
-        for a in (self.SLUG_ATTRS + self.ATTRIBUTES):
-            output[a] = getattr(self, a)
-
-        return output
-
 
 class Port:
     '''A basic class representing an Nmap port object.

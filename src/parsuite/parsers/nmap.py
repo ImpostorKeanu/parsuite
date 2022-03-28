@@ -24,16 +24,16 @@ def parse_http_links(tree,*args,**kwargs):
 
             port = nh.FromXML.port(eport)
 
-            # ASSURE THIS IS AN HTTP SERVICE
-            if not search('http',port.service.name) or port.state != 'open' or (
+            # ENSURE THIS IS AN HTTP SERVICE
+            if not search('http', port.service.name) or port.state != 'open' or (
                     port.protocol != 'tcp'):
                 continue
 
             for hostname in hostnames:
 
-                if not search('https',port.service.name):
+                if not search('https', port.service.name):
 
-                    if port.service.tunnel == 'ssl':
+                    if port.service.tunnel in ('ssl', 'tls',):
                         link = f'https://{hostname}:{port.number}'
                     else:
                         link = f'http://{hostname}:{port.number}'
@@ -95,6 +95,7 @@ def parse_nmap(tree,require_open_ports):
             # Get port service
             eser = eport.find('service')
             if eser != None:
+
                 for attr in Service.ATTRIBUTES:
                     val = eser.get(attr)
                     if val != None: service_attributes[attr]=val
