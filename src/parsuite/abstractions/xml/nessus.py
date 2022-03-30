@@ -1,18 +1,39 @@
-from parsuite.abstractions.xml.generic import network_host as NH
-from parsuite.abstractions.xml.generic.network_host import Host, PortDict, PortList
-from parsuite.abstractions.xml.generic.exceptions import *
 from parsuite import decorators
-from parsuite.helpers import slugified, AttrDict
-from copy import copy
+from parsuite.abstractions.xml.generic.exceptions import *
+from parsuite.abstractions.xml.generic import network_host as NH
+from parsuite.abstractions.xml.generic.network_host import (
+    Host,
+    PortDict,
+    PortList)
+from parsuite.helpers import (
+    slugified,
+    AttrDict,
+    AddressOutputs)
 from functools import wraps
 import re
+
+# =======
+# GLOBALS
+# =======
 
 plugin_name_re = pname_re = re.compile('(\s|\W)+')
 ipv4_re = i4_re = re.compile('^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$')
 ipv6_re = i6_re = re.compile('^(?:[A-F0-9]{1,4}:){7}[A-F0-9]{1,4}$')
 fqdn_re = re.compile('[a-z]', re.I)
-
 ve = decorators.validate_lxml_module
+
+SEVERITIES = list(range(0,5))
+RISK_FACTORS = [
+    'none',
+    'low',
+    'medium',
+    'high',
+    'critical']
+
+RF_BY_SEV = RISK_FACTORS_BY_SEVERITY = \
+    dict(zip(SEVERITIES, RISK_FACTORS))
+SEV_BY_RF = SEVERITIES_BY_RISK_FACTOR = \
+    dict(zip(RISK_FACTORS, SEVERITIES))
 
 class FromXML:
 
@@ -220,6 +241,13 @@ class NessusPort(NH.Port):
 
         return output
 
+    @property
+    def plugin_ids(self):
+        '''Return a list of plugin ids from report items.
+        '''
+
+        return [ri.plugin_id for ri in self.report_items]
+
 Port = NessusPort
 
 class ReportHost(NH.Host):
@@ -231,11 +259,8 @@ class ReportHost(NH.Host):
 
     def __init__(self, name, operating_system:str=None, mac_address:str=None,
             netbios_name:str=None, rdns:str=None, ip:str=None, fqdn:str=None,
-            hostnames:list=None, ports:PortList=None,
-            icmp_ports:PortDict=None):
-
-        ports = ports if ports is not None else NH.PortList()
-        icmp_ports = icmp_ports if icmp_ports is not None else NH.PortDict('icmp')
+            hostnames:list=None, ports:PortList=PortList(),
+            icmp_ports:PortDict=PortDict('icmp')):
 
         # =====================
         # INITIALIZE ATTRIBUTES
@@ -252,9 +277,10 @@ class ReportHost(NH.Host):
         # ============================
         # INITIALIZE PARENT ATTRIBUTES
         # ============================
-        
-        kwargs = {}
-        kwargs['status_reason'] = 'nessus-up'
+
+        kwargs = dict(
+            status = 'up',
+            status_reason = 'nessus-up')
 
         # TODO: Likely bug here.
         if re.match(ipv4_re, ip):
@@ -269,7 +295,7 @@ class ReportHost(NH.Host):
 
         kwargs['hostnames'] = hostnames
         
-        super().__init__(ports=ports,**kwargs)
+        super().__init__(ports=ports, **kwargs)
 
     @property
     @slugified()
@@ -285,6 +311,48 @@ class ReportHost(NH.Host):
     @slugified()
     def netbios_name_slug(self):
         return self.netbios_name
+
+    @property
+    def plugin_ids(self) -> [str]:
+        '''Return a list of plugin ids collected from all ports
+        associated with the host.
+        '''
+
+        ids = []
+        for port in self.ports:
+            ids += port.plugin_ids
+
+        return set(ids)
+
+    @property
+    def address_values(self):
+        
+        if self.ports:
+            if self.ports[0].report_items:
+                ri = self.ports[0].report_items[0]
+            else:
+                return
+        else:
+            return
+
+        output = AddressOutputs()
+
+        # Append each address value to the outputs
+        for prop in ReportItem.ADDRESS_PROPERTIES:
+
+            ri_value = getattr(ri, prop)
+
+            for pprop in output.__dict__.keys():
+                if pprop.startswith(prop):
+                    break
+            
+            attr = getattr(output, pprop)
+            if not isinstance(ri_value, list):
+                attr.append(ri_value)
+            else:
+                attr += ri_value
+
+        return output
 
 def report_item_host_exists(m):
 
@@ -377,34 +445,25 @@ class ReportItem(AttrDict):
             'protocol',
             'see_also',)]
 
+    ADDRESS_PROPERTIES = [
+        'ipv4_address',
+        'ipv4_socket',
+        'ipv4_url',
+        'ipv4_transport_layer_socket',
+        'ipv6_address',
+        'ipv6_socket',
+        'ipv6_url',
+        'ipv6_transport_layer_socket',
+        'hostnames',
+        'hostname_sockets',
+        'hostname_urls',
+        'hostname_transport_layer_sockets',]
+
     def __init__(self,
             agent:str,
-            always_run:str,
-            description:str,
-            fname:str,
-            plugin_modification_date:str,
-            pluginName:str,
-            plugin_publication_date:str,
-            plugin_type:str,
-            risk_factor:str,
-            script_copyright:str,
-            script_version:str,
-            solution:str,
-            synopsis:str,
-            port:str,
-            svc_name:str,
-            protocol:str,
-            severity:str,
-            pluginID:str,
-            pluginFamily:str,
-            exploit_available:str,
-            exploit_framework_canvas:str,
-            exploit_framework_metasploit:str,
-            exploit_framework_core:str,
-            metasploit_name:str,
-            canvas_package:str,
-            plugin_output:str,
             age_of_vuln:str,
+            always_run:str,
+            canvas_package:str,
             cve:str,
             cvss3_base_score:str,
             cvssV3_impactScore:str,
@@ -413,10 +472,33 @@ class ReportItem(AttrDict):
             cvss_temporal_score:str,
             cvss_temporal_vector:str,
             cvss_vector:str,
+            description:str,
+            exploit_available:str,
+            exploit_framework_canvas:str,
+            exploit_framework_metasploit:str,
+            exploit_framework_core:str,
+            fname:str,
+            metasploit_name:str,
             msft:str,
-            see_also:str=None,
+            plugin_modification_date:str,
+            pluginName:str,
+            plugin_publication_date:str,
+            plugin_type:str,
+            pluginID:str,
+            pluginFamily:str,
+            plugin_output:str,
+            port:str,
+            protocol:str,
+            risk_factor:str,
+            script_copyright:str,
+            script_version:str,
+            solution:str,
+            synopsis:str,
+            svc_name:str,
+            severity:str,
             metasploit_modules=None,
-            report_host=None):
+            report_host=None,
+            see_also:str=None):
 
         self.report_host = report_host
         self.metasploit_modules = metasploit_modules if \
@@ -620,8 +702,27 @@ class ReportItem(AttrDict):
 
     @property
     @report_item_host_exists
+    def ipv4_transport_layer_socket(self):
+        sock = self.ipv4_socket
+        if not sock:
+            return None
+        return f'{self.port.protocol}://'+self.ipv4_socket
+
+    @property
+    @report_item_host_exists
+    def ipv6_transport_layer_socket(self):
+        return f'{self.port.protocol}://'+self.ipv6_socket
+
+    @property
+    @report_item_host_exists
+    def hostname_transport_layer_sockets(self):
+        return [f'{self.port.protocol}://'+hns for
+                hns in self.hostname_sockets]
+
+    @property
+    @report_item_host_exists
     def ipv4_url(self):
-        if self.report_host.ipv4_address:
+        if self.report_host.ipv4_address and self.svc_name:
             return (f'{self.svc_name}://'
                 f'{self.report_host.ipv4_address}:{self.port.number}')
         return None
@@ -629,7 +730,7 @@ class ReportItem(AttrDict):
     @property
     @report_item_host_exists
     def ipv6_url(self):
-        if self.report_host.ipv6_address:
+        if self.report_host.ipv6_address and self.svc_name:
             return (f'{self.svc_name}://'
                 f'[{self.report_host.ipv6_address}]:{self.port.number}')
         return None
@@ -637,9 +738,19 @@ class ReportItem(AttrDict):
     @property
     @report_item_host_exists
     def hostname_urls(self):
+        if not self.svc_name: return None
         return [
             f'{self.svc_name}://{h}:{self.port.number}' for h in
             self.report_host.hostnames]
+
+    @property
+    @report_item_host_exists
+    def address_values(self):
+
+        return {
+            prop:getattr(self, prop) for prop in
+            self.ADDRESS_PROPERTIES
+        }
 
     # convenience is convenient
     na = normalize_attr

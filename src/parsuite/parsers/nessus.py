@@ -48,8 +48,32 @@ def parse_http_links(tree,*args,**kwargs):
     return links
 
 class NessusReport(dict):
+
     def __init__(self):
+
         self.plugins = {}
+
+    def get_all_affected(self) -> dict:
+        '''Return a dictionary if xml.nessus.AddressOutput objects
+        organized by plugin ID.
+
+        Returns:
+            dict
+        '''
+
+        output = {}
+        for rhost in self.values():
+
+            rh_addrs = rhost.address_values
+
+            for pid in rhost.plugin_ids:
+
+                if not pid in output:
+                    output[pid] = AddressOutputs().merge(rh_addrs)
+                else:
+                    output[pid].merge(rh_addrs)
+
+        return output
 
 def parse_nessus(tree, no_services, minimize_plugins=True):
 
@@ -77,49 +101,51 @@ def parse_nessus(tree, no_services, minimize_plugins=True):
 
     for rhost in tree.findall('.//ReportItem/..'):
 
-        # Assure that the current host has at least one open port
-        if alive_hosts and rhost not in alive_hosts: continue
-
+#        # Assure that the current host has at least one open port
+#        if alive_hosts and rhost not in alive_hosts: continue
+#
         name = rhost.get('name')
         if name == None: name = None
-        
+#        
         host_ip = rhost.find('.//tag[@name="host-ip"]')
         if host_ip != None: host_ip = host_ip.text
         else: host_ip = name
-
+#
         tup = (name, host_ip,)
-
+#
         if not tup in handled:
             handled.append(tup)
         else:
             continue
-
+#
         # bush league
         if not name and not host_ip: continue
+#
+#        if match(r'([0-9]{1,3}\.){3}',host_ip):
+#            ipv4_address = host_ip
+#            ipv6_address = None
+#        else:
+#            ipv4_address = None
+#            ipv6_address = host_ip
+#        
+#        mac = rhost.find('.//tag[@name="mac-address"]')
+#        if mac != None: mac = mac.text.split('\n')[0]
+#        
+#        hostnames = []
+#        for k in ['host-fqdn','host-rdns']:
+#
+#            val = rhost.find(f'.//tag[@name="{k}"]')
+#            if val != None and val.text not in hostnames:
+#                hostnames.append(val.text)
+#
+#        host = ReportHost(ipv4_address=ipv4_address,
+#            ipv6_address=ipv6_address,
+#            status=status,
+#            status_reason=status_reason,
+#            mac_address=mac,
+#            hostnames=hostnames)
 
-        if match(r'([0-9]{1,3}\.){3}',host_ip):
-            ipv4_address = host_ip
-            ipv6_address = None
-        else:
-            ipv4_address = None
-            ipv6_address = host_ip
-        
-        mac = rhost.find('.//tag[@name="mac-address"]')
-        if mac != None: mac = mac.text.split('\n')[0]
-        
-        hostnames = []
-        for k in ['host-fqdn','host-rdns']:
-
-            val = rhost.find(f'.//tag[@name="{k}"]')
-            if val != None and val.text not in hostnames:
-                hostnames.append(val.text)
-
-        host = Host(ipv4_address=ipv4_address,
-            ipv6_address=ipv6_address,
-            status=status,
-            status_reason=status_reason,
-            mac_address=mac,
-            hostnames=hostnames)
+        host = FromXML.report_host(rhost)
 
         for eri in rhost.findall('.//ReportItem'):
 
@@ -161,6 +187,7 @@ def parse_nessus(tree, no_services, minimize_plugins=True):
 
                 # Put the plugin in the plugins dictionary
                 if not ri.plugin_id in report.plugins:
+
                     report.plugins[plugin.plugin_id] = plugin
 
                 if minimize_plugins:
@@ -229,6 +256,10 @@ def parse_nessus(tree, no_services, minimize_plugins=True):
                         ri.tunnel = True
                         if ri.svc_name == 'http':
                             ri.svc_name = 'https'
+
+            # ============================
+            # AGGREGATE AFFECTED ADDRESSES
+            # ============================
 
     return report
 

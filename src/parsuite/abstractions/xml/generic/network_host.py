@@ -269,7 +269,7 @@ class Port:
 
 class PortDict(dict):
     '''A dictionary of port number to port list mappings that
-    enforces a particular type of protocol.
+    enforces a specific transport layer protocol.
     '''
 
     VALID_PROTOCOLS = ['tcp','udp','sctp','ip','icmp']
@@ -434,12 +434,11 @@ class Host:
     def __init__(self, tcp_ports:PortDict=None, udp_ports:PortDict=None,
             ip_ports:PortDict=None, sctp_ports:PortDict=None,
             ipv4_address:str=None, ipv6_address:str=None,
-            hostnames:list=None, status:str=None, status_reason:str=None,
-            mac_address:str=None, ports:PortList=None):
+            hostnames:list=[], status:str=None, status_reason:str=None,
+            mac_address:str=None, ports:PortList=PortList()):
 
-        self.hostnames = list() if hostnames is None else hostnames
-        self.ports = PortList() if ports is None else ports
         self.ip_addresses = list()
+        self.hostnames = hostnames
 
         # Technically protocols: https://nmap.org/book/scan-methods-ip-protocol-scan.htm
         # Nmap refers to them as ports though, so let's stick with that
@@ -447,6 +446,7 @@ class Host:
         self.udp_ports  = udp_ports
         self.ip_ports   = ip_ports
         self.sctp_ports = sctp_ports
+        self.ports      = ports
 
         self.parsed_mac  = None
         self.parsed_ipv4 = None
@@ -619,11 +619,16 @@ class Host:
             sctp_ports = self.sctp_ports.__dict__)
 
     def get_ports(self, *args, **kwargs):
+
         return [port.number for port in self.ports]
 
     def to_services(self, *args, **kwargs):
 
-        return [[f'{self.ipv4_address}:{port.number}',port.protocol]+port.service.to_row() for port in self.ports if port.service.product]
+        return [
+                [f'{self.ipv4_address}:{port.number}',port.protocol] +
+                port.service.to_row() for port in self.ports
+                if port.service.product
+            ]
 
 
     def to_ports(self, service_search=[], sreg=False,
@@ -660,7 +665,6 @@ class Host:
 
         return [str(p.number) for p in set(ports)]
 
-
     def get_addresses(self,fqdns=False, port_search=[], service_search=[],
             sreg=False, port_required=False, *args, **kwargs):
 
@@ -670,7 +674,7 @@ class Host:
         # REQUIRE AN OPEN PORT
         # ====================
 
-        if port_required and not self.ports.get('state','open'):
+        if port_required and not self.ports.get('state', 'open'):
             return []
 
         # =======================
@@ -678,7 +682,7 @@ class Host:
         # =======================
 
         for port in port_search:
-            if not self.ports.get('number',port).get('state','open'):
+            if not self.ports.get('number',port).get('state', 'open'):
                 return []
 
         # ===============
@@ -695,13 +699,13 @@ class Host:
 
                 if sreg:
 
-                    if self.ports.get(attr='service',value=service,
-                        regexp=True,value_attr='name'):
+                    if self.ports.get(attr='service', value=service,
+                        regexp=True, value_attr='name'):
                         matched = True
                         break
                     
-                    if self.ports.get(attr='service',value=service,
-                        regexp=True,value_attr='extrainfo'):
+                    if self.ports.get(attr='service', value=service,
+                        regexp=True, value_attr='extrainfo'):
                         matched = True
                         break
 
@@ -711,11 +715,11 @@ class Host:
 
                 else:
 
-                    if self.ports.get(attr='service',value=service):
+                    if self.ports.get(attr='service', value=service):
                         matched = True
                         break
 
-                    if self.ports.get('service',value=service,
+                    if self.ports.get('service', value=service,
                             value_attr='extrainfo'):
                         matched = True
                         break
@@ -736,8 +740,11 @@ class Host:
         # TODO: add option for ipv4/6/fqdn option
 
         if self.ipv4_address:
+
             addresses.append(self.ipv4_address)
+
         elif self.ipv6_address:
+
             addresses.append(self.ipv6_address)
 
         # Assure host has at least one address
@@ -747,7 +754,6 @@ class Host:
             )
 
         return sorted(addresses)
-
 
     def to_addresses(self,*args,**kwargs):
         return self.get_addresses(*args,**kwargs)
@@ -795,12 +801,12 @@ class Host:
 
         return sorted(output)
 
-
-    def to_sockets(self,fqdns=False,open_only=True,protocols=['tcp'],
-            scheme_layer=None,mangle_functions=[],port_search=[],
-            service_search=[],sreg=None,extrainfo=False,*args,**kwargs):
-        """
-        Return a list of socket values derived from service objects
+    def to_sockets(self, fqdns:bool=False, open_only:bool=True,
+            protocols:list=['tcp'], scheme_layer:str=None,
+            mangle_functions:list=[], port_search:list=[],
+            service_search:list=[], sreg:str=None,
+            extrainfo:bool=False, *args, **kwargs):
+        '''Return a list of socket values derived from service objects
         associated with a given host.
 
         fqdns - boolean - Determine if fqdns should be returned
@@ -810,7 +816,7 @@ class Host:
         mangle_functions - a list of functions which the string
         final address will be passed to. Useful for mangling services
         to specific values.
-        """
+        '''
 
         # =============
         # ENFORCE TYPES
@@ -824,6 +830,7 @@ class Host:
 
         # Assure valid scheme type is supplied
         if scheme_layer:
+
             if not scheme_layer in ['transport','application']:
                 raise ValueError(
                     'scheme_layer must be either transport or application'
@@ -833,9 +840,9 @@ class Host:
         output = []
 
         for transport_protocol in protocols:
-            for port_number,port in self \
-                .__getattribute__(transport_protocol+'_ports') \
-                .items():
+
+            for port_number,port in getattr(self,
+                    transport_protocol+'_ports').items():
 
                 # =================
                 # ENFORCE OPEN ONLY
@@ -889,18 +896,20 @@ class Host:
                 # BUILD THE SCHEME PREFIX
                 # =======================
 
+                scheme = ''
                 if scheme_layer == 'transport':
+
                     if port.service.tunnel in ['ssl','tls']:
                         scheme = port.service.tunnel+'/'+transport_protocol+'://'
                     else:
                         scheme = transport_protocol+'://'
+
                 elif scheme_layer == 'application' and port.service:
+
                     if port.service.name == 'http' and port.service.tunnel in ['ssl','tls']:
                         scheme = port.service.name+'s://'
                     else:
                         scheme = port.service.name+'://'
-                else:
-                    scheme = ''
                 
                 # ====================
                 # FORMAT THE ADDRESSES
@@ -929,7 +938,12 @@ class Host:
 
                         addr += ","+"; ".join(info)
 
+                    # ====================
+                    # RUN MANGLE FUNCTIONS
+                    # ====================
+
                     for func in mangle_functions:
+
                         addr = func(addr)
 
                     output.append(addr)
