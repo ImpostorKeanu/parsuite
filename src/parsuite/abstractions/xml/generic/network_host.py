@@ -494,7 +494,24 @@ class Host:
         self._mac_address = mac
 
         if self._mac_address is not None:
-            self.parsed_mac = MAC(mac)
+
+            if self._mac_address.find('\n') > -1:
+
+                # ==================================================================
+                # THIS HACKY FIX WORKS AROUND NESSUS TRACKING MULTIPLE MAC ADDRESSES
+                # ==================================================================
+
+                split = self._mac_address.split('\n')
+                self._mac_address = None
+                ind = 0
+                while ind < len(split):
+                    if split[ind]:
+                        self._mac_address = split[ind]
+                        break
+                    ind += 1
+
+            if self._mac_address is not None:
+                self.parsed_mac = MAC(self._mac_address)
 
     @property
     def ipv4_address(self):
