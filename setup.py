@@ -7,7 +7,7 @@ with open('README.md', 'r', encoding='utf-8') as f:
 
 setuptools.setup(
     name='parsuite',
-    version='0.0.0',
+    version='0.0.0.1',
     author='Justin Angel',
     author_email='justin@arch4ngel.ninja',
     description='A framework to parse common things.',
