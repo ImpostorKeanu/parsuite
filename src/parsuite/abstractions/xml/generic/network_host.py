@@ -393,6 +393,12 @@ class PortList(list):
 
             return ports
 
+    @property
+    def numbers(self):
+        return [p.number for p in set(self.get('state', 'open'))]
+
+
+
 def is_portdict(f):
 
     @wraps(f)
@@ -642,14 +648,16 @@ class Host:
 
         return [[f'{self.ipv4_address}:{port.number}',port.protocol]+port.service.to_row() for port in self.ports if port.service.product]
 
-
     def to_ports(self, service_search=[], sreg=False,
-            *args, **kwargs):
+            open_only=True, *args, **kwargs):
         '''Translate the host to a list of port numbers.
         '''
 
         if not service_search:
-            return self.get_ports()
+            if open_only:
+                return self.ports.numbers
+            else:
+                return self.get_ports()
         
         ports = PortList()
         for service in service_search:
@@ -674,6 +682,9 @@ class Host:
                 ports += self.ports.get(attr='service',value=service)
                 ports += self.ports.get('service',value=service,
                         value_attr='extrainfo')
+
+        if open_only:
+            ports = ports.get(attr='state', value='open')
 
         return [str(p.number) for p in set(ports)]
 
