@@ -316,35 +316,35 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
 
                 # Check if the host is already being tracked in rhosts
                 if rh:
-    
+
                     # ==================
                     # UPDATE KNOWN RHOST
                     # ==================
-    
+
                     # update the ports list of the target host with the port
                     # of the current report item
-                    
+
                     if not ri.port in rh.ports \
                             .get('number', ri.port.number) \
                             .get('protocol', ri.protocol):
                         rh.append_port(ri.port)
-    
+
                 else:
-    
+
                     # ================
                     # CREATE NEW RHOST
                     # ================
-    
+
                     rh = FromXML.report_host(parent)
                     rh.append_port(ri.port)
                     rhosts[host_ip] = rh
-    
+
                 # ====================
                 # HANDLE PLUGIN OUTPUT
                 # ====================
-    
+
                 if ri.plugin_output and plugin_outputs:
-                    
+
                     ri.port.plugin_outputs.append_output(
                         plugin_id, ri.plugin_output
                     )
@@ -459,11 +459,11 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
 
                             if not port.number in ports:
                                 ports.append(port.number)
-    
+
                             for ip in host_ips:
                                 socket = f'{ip}:{port.number}'
                                 sockets.append(socket)
-    
+
                             for fqdn in host_fqdns:
                                 fsocket = f'{fqdn}:{port.number}'
                                 fsockets.append(fsocket)
@@ -575,7 +575,7 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
                             addr, sport = socket.split(':')
                             if port == sport: outfile.write(addr+'\n')
 
-                    with (ffpsplits_dir / '{protocol}_{port}_fqdns.list').open('a') as outfile:
+                    with (fpsplits_dir / '{protocol}_{port}_fqdns.list').open('a') as outfile:
 
                         for socket in fsockets:
                             addr, sport = socket.split(':')
@@ -599,7 +599,7 @@ def parse(input_file=None, output_directory=None, plugin_outputs=False,
 
                 for plugin_name in sorted(
                         list(finding_index[k].keys())):
-                    
+
                     dct = finding_index[k][plugin_name]
 
                     rows.append([
