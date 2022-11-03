@@ -33,17 +33,17 @@ args = [
         from the CSV file are accessed using this type of injection
         scheme: <<<:{field_name}:>>>, where field_name is a column header.
         A range of characters can be selected for a given field by using
-        Python's slice syntac, e.g. <<<:first_name[0]:>>> would select
+        Python's slice syntax, e.g. <<<:first_name[0]:>>> would select
         only the first character of the first_name field. Generate random
         values by inserting this scheme: <<<:RAND:>>>. Additionally, If 
         the same random value needs to be shared between each template,
         suffix the random injection scheme with an integer value: 
         <<<:RAND1:>>>. Additionally, you can apply a single 'encoding'
         to any value as well by injecting a sequence in the form of:
-        <<<:{field_name}:{encoding}>>>. For instance, you could make sure
-        that all instances of the first_name field are lower cased by using
-        the following template: <<<:first_name:lowercase_encode>>>. The
-        following encoders are currently supported:
+        <<<:{field_name}:{encoding}>>>. For instance, you lower case
+        all instances of the first_name field are by using:
+        <<<:first_name:lowercase_encode>>>. The
+        following encoders are supported:
         ''' + (', '.join(TRANSFORMS))),
     Argument('--header-values','-hvs',
         nargs='+',

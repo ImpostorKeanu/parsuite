@@ -1,33 +1,31 @@
-from parsuite.core.argument import Argument,DefaultArguments
+from parsuite.core.argument import Argument
 from parsuite import helpers
 from parsuite.core.suffix_printer import *
-import argparse
-import os
-from re import findall
+from hashlib import md5
 
-help = """Define an insertion point (signature) within a template file
-and replace the line with a payload from a distinct file. Useful in
-situations where an extremely long payload needs to be inserted, such
-as when working with hex shellcode for stageless payloads.
-"""
+help = ('Replace all instances of a signature in a template file. '
+        'Useful in situations when a long payload needs to be inserted '
+        'into a file, such as when working with hex encoded shellcode '
+        'for stageless payloads.')
 
 args = [
     Argument('--template-file','-tf',
         required=True,
-        help="""Template file that will be read in. A signature
-        string must be present at the beginning of a line, which
-        is where the payload will be inserted."""),
+        help=('Template file containing instances of --signature. '
+              'All instances of --signature will be replaced with '
+              'content from --payload-file.')),
     Argument('--payload-file','-pf',
         required=True,
-        help="""File containing the payload to insert"""),
+        help=('File containing content that will replace --signature '
+              'instances found in --template-file.')),
     Argument('--output-file','-of',
         required=True,
-        help="""File to write the output to."""),
+        help='File that will receive output.'),
     Argument('--signature','-s',
         required=True,
-        help="""Signature string. Must be at the beginning of a
-        line on it's own. This value will be replayed with the
-        payload""")
+        help=('Signature string. Must be at the beginning of a '
+              'line on it\'s own. This value will be replayed with the '
+              'payload'))
 ]
 
 def parse(template_file=None, payload_file=None, signature=None,
@@ -37,25 +35,24 @@ def parse(template_file=None, payload_file=None, signature=None,
     helpers.validate_input_files([template_file, payload_file])
 
     esprint('Parsing the payload file')
-    with open(payload_file) as infile: payload = infile.read()
+    with open(payload_file, 'rb') as infile:
+        payload = infile.read()[:-1]
 
     esprint('Opening and parsing the template file')
-    inserted = False
-    with open(template_file) as template:
-        lines = []
-        for line in template:
-            if signature == line.strip():
-                esprint('Inserting the payload.')
-                line = payload
-                inserted = True
-            lines.append(line)
+    with open(template_file, 'rb') as template:
+        orig = template.read()
+        o_hash = md5()
+        o_hash.update(orig)
 
-    if not inserted:
-        esprint("""WARNING: Signature never detected! Payload was not
-        inserted. Note that the signature must be on its own line with
-        no other content.""")
+        buff = orig.replace(bytes(signature,'utf8'), payload, -1)
+        b_hash = md5()
+        b_hash.update(buff)
 
-    esprint('Writing the output file')
-    with open(output_file,'w') as outfile:
-        for line in lines:
-            outfile.write(line)
+    if o_hash.digest() != b_hash.digest():
+        esprint('File updated')
+        esprint('Writing output file')
+        with open(output_file,'wb') as outfile:
+            outfile.write(buff)
+    else:
+        esprint('Signature undetected!')
+        esprint('File unchanged.')
