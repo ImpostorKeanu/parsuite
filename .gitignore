@@ -1,3 +1,5 @@
+parsuite_workdir/*
+
 migrations/
 
 # Byte-compiled / optimized / DLL files
