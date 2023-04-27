@@ -1,0 +1,8 @@
+version: "3.9"
+services:
+  parsuite:
+    image: parsuite:latest
+    build:
+      dockerfile: Dockerfile
+    volumes:
+      - "./parsuite_workdir:/workdir/"
